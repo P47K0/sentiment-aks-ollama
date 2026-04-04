@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-adapter
+  template:
+    metadata:
+      labels:
+        app: llm-adapter
+    spec:
+      containers:
+      - name: llm-adapter
+        image: p47r1ck75/llm-adapter:1.0.0
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+        envFrom:
+        - configMapRef:
+            name: sentiment-config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-adapter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: llm-adapter

@@ -1,0 +1,64 @@
+trigger:
+  - main
+  
+# This tells the pipeline where your GitHub repository is
+resources:
+  repositories:
+    - repository: self
+      type: github
+      name: PR477Y75/sentiment-aks-ollama     # ← CHANGE THIS to your exact GitHub username + repo name
+      endpoint: 'GitHub'                       # Name of the service connection you created
+
+variables:
+  dockerUsername: 'p47r1ck75'          # ← Change to your Docker Hub username
+  imageTag: '$(Build.BuildId)'         # Uses pipeline run ID as version (professional)
+  # imageTag: '1.0.0'                  # Uncomment this if you want a fixed version
+
+stages:
+
+  - stage: Build
+    displayName: 'Build & Push Images'
+    jobs:
+      - job: Build
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+
+          - task: Docker@2
+            displayName: 'Build and push llm-adapter'
+            inputs:
+              command: buildAndPush
+              repository: $(dockerUsername)/llm-adapter
+              tags: |
+                $(imageTag)
+                latest
+              Dockerfile: 'llm-adapter/Dockerfile'
+
+          - task: Docker@2
+            displayName: 'Build and push sentiment-api'
+            inputs:
+              command: buildAndPush
+              repository: $(dockerUsername)/sentiment-api
+              tags: |
+                $(imageTag)
+                latest
+              Dockerfile: 'sentiment-api/Dockerfile'
+
+  - stage: Deploy
+    displayName: 'Deploy to AKS'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToAKS
+        displayName: 'Deploy Application'
+        environment: 'dev'                     # You can change this or remove it
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: KubernetesManifest@1
+                  displayName: 'Deploy to AKS'
+                  inputs:
+                    action: 'deploy'
+                    kubernetesServiceConnection: 'aks-service-connection'   # Create this in Azure DevOps
+                    manifests: 'k8s/*.yaml'

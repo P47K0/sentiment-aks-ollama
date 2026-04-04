@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        ports:
+        - containerPort: 11434
+        resources:
+          requests:
+            cpu: "2500m"
+            memory: "10Gi"
+          limits:
+            cpu: "3500m"
+            memory: "12Gi"
+        # Health Probes for Ollama
+        livenessProbe:
+          httpGet:
+            path: /api/version          # Ollama has this endpoint
+            port: 11434
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /api/tags             # Checks if models are loaded
+            port: 11434
+          initialDelaySeconds: 45
+          periodSeconds: 20
+          timeoutSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-service
+spec:
+  type: ClusterIP
+  ports:port: 11434
+targetPort: 11434
+  selector:
+app: ollama
+
