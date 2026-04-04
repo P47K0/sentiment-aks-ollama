@@ -37,10 +37,15 @@ External Client → Sentiment API → LLM Adapter → Ollama (private in cluster
 ## Project Structure
 sentiment-aks-ollama/
 ├── terraform/           # AKS cluster definition
+
 ├── llm-adapter/         # LLM adapter service
+
 ├── sentiment-api/       # Main sentiment API
+
 ├── k8s/                 # Kubernetes manifests
+
 ├── azure-pipelines.yml  # CI/CD pipeline
+
 └── README.md
 
 
