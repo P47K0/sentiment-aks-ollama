@@ -2,9 +2,14 @@
 # Safer version using $PSScriptRoot
 
 # Get the root of the project (one level above sandbox-scripts)
-$rootPath = Split-Path -Parent $PSScriptRoot
+if ($PSScriptRoot) {
+    $rootPath = Split-Path -Parent $PSScriptRoot
+} else {
+    $rootPath = Get-Location
+}
 
-if (-not $rootPath) {
+# Fallback: if we're already in the root, use current location
+if (-not (Test-Path "$rootPath/terraform")) {
     $rootPath = Get-Location
 }
 
@@ -17,7 +22,7 @@ Write-Host "=== Starting Full Deployment ===" -ForegroundColor Cyan
 
 # Run Terraform
 Write-Host "Running Terraform..." -ForegroundColor Yellow
-Push-Location -Path "terraform"
+Push-Location -Path "./terraform"
 terraform apply -auto-approve
 Pop-Location
 

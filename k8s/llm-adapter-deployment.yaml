@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: llm-adapter
-        image: p47r1ck75/llm-adapter:1.0.0
+        image: p47r1ck75/llm-adapter:1.0.1
         ports:
         - containerPort: 5000
         resources:

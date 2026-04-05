@@ -2,9 +2,9 @@
 # Deployment script - reads Public IP from Terraform and deploys all services
 
 # Get the root of the project (one level above sandbox-scripts folder)
-$rootPath = Split-Path -Parent $PSScriptRoot
-
-if (-not $rootPath) {
+if ($PSScriptRoot) {
+    $rootPath = Split-Path -Parent $PSScriptRoot
+} else {
     $rootPath = Get-Location
 }
 
