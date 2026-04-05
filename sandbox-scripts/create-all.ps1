@@ -1,5 +1,14 @@
 # sandbox-scripts/full-deploy.ps1
-# Safer version using $PSScriptRoot
+# > pwsh .\sandbox-scripts\full-deploy.ps1 -ResourceGroupName "318900_1775315728609_rg" 
+
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ResourceGroupName
+)
+
+Write-Host "=== Full Deployment Script ===" -ForegroundColor Cyan
+Write-Host "Using Resource Group: $ResourceGroupName" -ForegroundColor Yellow
 
 # Get the root of the project (one level above sandbox-scripts)
 if ($PSScriptRoot) {
@@ -23,8 +32,15 @@ Write-Host "=== Starting Full Deployment ===" -ForegroundColor Cyan
 # Run Terraform
 Write-Host "Running Terraform..." -ForegroundColor Yellow
 Push-Location -Path "./terraform"
-terraform apply -auto-approve
+terraform apply -auto-approve -var="resource_group_name=$ResourceGroupName" 
 Pop-Location
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Terraform apply failed!" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Terraform completed successfully." -ForegroundColor Green
 
 # Wait and then run deployment
 Write-Host "Waiting for AKS to be ready..." -ForegroundColor Yellow

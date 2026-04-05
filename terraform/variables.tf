@@ -1,7 +1,7 @@
 variable "location" {
   description = "Azure region"
   type        = string
-  default     = "westeurope"
+  default     = "westus"
 }
 
 variable "environment" {
@@ -13,7 +13,7 @@ variable "environment" {
 variable "node_vm_size" {
   description = "VM size for AKS nodepool"
   type        = string
-  default     = "Standard_D4s_v5"
+  default     = "Standard_D2as_v4"
 }
 
 variable "node_count" {

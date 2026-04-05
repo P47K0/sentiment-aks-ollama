@@ -1,5 +1,10 @@
 # sandbox-scripts/deploy-aks.ps1
-# Deployment script - reads Public IP from Terraform and deploys all services
+param(
+    [string]$ResourceGroupName
+)
+
+Write-Host "=== AKS Deployment Script ===" -ForegroundColor Cyan
+
 
 # Get the root of the project (one level above sandbox-scripts folder)
 if ($PSScriptRoot) {
@@ -11,11 +16,11 @@ if ($PSScriptRoot) {
 Write-Host "Project root detected as: $rootPath" -ForegroundColor Gray
 Set-Location $rootPath
 
-Write-Host "=== AKS Deployment Script ===" -ForegroundColor Cyan
 
 # Configuration
-$ResourceGroupName = "rg-ollama-dev"
 $ClusterName       = "aks-ollama-dev"
+
+Write-Host "Using Resource Group: $ResourceGroupName" -ForegroundColor Yellow
 
 # 1. Get AKS credentials
 Write-Host "Getting AKS credentials..." -ForegroundColor Yellow
