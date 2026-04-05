@@ -12,6 +12,8 @@ spec:
       labels:
         app: ollama
     spec:
+      nodeSelector:
+        agentpool: userpool
       containers:
       - name: ollama
         image: ollama/ollama:latest
@@ -20,10 +22,10 @@ spec:
         resources:
           requests:
             cpu: "2500m"
-            memory: "10Gi"
+            memory: "4Gi"
           limits:
             cpu: "3500m"
-            memory: "12Gi"
+            memory: "6Gi"
         # Health Probes for Ollama
         livenessProbe:
           httpGet:

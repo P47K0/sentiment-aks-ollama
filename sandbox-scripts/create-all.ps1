@@ -46,6 +46,22 @@ Write-Host "Terraform completed successfully." -ForegroundColor Green
 Write-Host "Waiting for AKS to be ready..." -ForegroundColor Yellow
 Start-Sleep -Seconds 180
 
+Write-Host "Adding B4ms user nodepool..." -ForegroundColor Yellow
+az aks nodepool add `
+  --resource-group $ResourceGroupName `
+  --cluster-name $ClusterName `
+  --name userpool `
+  --node-vm-size Standard_B4ms `
+  --node-count 1
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Failed to add B4ms user nodepool!" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Waiting for B4ms user nodepool to be ready..." -ForegroundColor Yellow
+Start-Sleep -Seconds 120
+
 Write-Host "Running deployment script..." -ForegroundColor Yellow
 .\sandbox-scripts\deploy-aks.ps1
 
