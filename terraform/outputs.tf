@@ -1,5 +1,5 @@
 output "resource_group_name" {
-  value = azurerm_resource_group.rg.name
+  value = data.azurerm_resource_group.rg.name
 }
 
 output "aks_cluster_name" {
@@ -15,10 +15,11 @@ output "public_ip_name" {
 }
 
 output "aks_host" {
-  value = azurerm_kubernetes_cluster.aks.kube_config[0].host
+  value     = azurerm_kubernetes_cluster.aks.kube_config[0].host
+  sensitive = true
 }
 
 output "aks_kubeconfig" {
-  value       = azurerm_kubernetes_cluster.aks.kube_config_raw
-  sensitive   = true
+  value     = azurerm_kubernetes_cluster.aks.kube_config_raw
+  sensitive = true
 }
