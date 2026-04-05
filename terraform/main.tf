@@ -9,6 +9,9 @@ terraform {
 
 provider "azurerm" {
   features {}
+
+  # Required for Whizlabs sandbox - prevents permission errors
+  resource_provider_registrations = "none"
 }
 
 # Resource Group
