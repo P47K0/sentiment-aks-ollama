@@ -10,6 +10,11 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "resource_group_name" {
+  description = "Name of the resource group (from sandbox)"
+  type        = string
+}
+
 variable "node_vm_size" {
   description = "VM size for AKS nodepool"
   type        = string
