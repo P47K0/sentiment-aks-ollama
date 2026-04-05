@@ -1,14 +1,19 @@
-# sandbox-scripts/full-deploy.ps1
-# > pwsh .\sandbox-scripts\full-deploy.ps1 -ResourceGroupName "318900_1775315728609_rg" 
+# sandbox-scripts/create-all.ps1
+# > pwsh .\sandbox-scripts\create-all.ps1 -ResourceGroupName "318900_1775315728609_rg" 
 
 
 param(
     [Parameter(Mandatory=$true)]
-    [string]$ResourceGroupName
+    [string]$ResourceGroupName,
+    [string]$ClusterName = "aks-ollama-dev",
+    [string]$Environment = "dev",
+    [bool]$InstallTraefik = $false
 )
 
 Write-Host "=== Full Deployment Script ===" -ForegroundColor Cyan
 Write-Host "Using Resource Group: $ResourceGroupName" -ForegroundColor Yellow
+Write-Host "Cluster Name     : $ClusterName" -ForegroundColor Yellow
+Write-Host "Install Traefik  : $InstallTraefik" -ForegroundColor Yellow
 
 # Get the root of the project (one level above sandbox-scripts)
 if ($PSScriptRoot) {
@@ -63,6 +68,6 @@ Write-Host "Waiting for B4ms user nodepool to be ready..." -ForegroundColor Yell
 Start-Sleep -Seconds 120
 
 Write-Host "Running deployment script..." -ForegroundColor Yellow
-.\sandbox-scripts\deploy-aks.ps1
+.\sandbox-scripts\deploy-aks.ps1 -InstallTraefik:$InstallTraefik -ResourceGroupName $ResourceGroupName -Environment $Environment -ClusterName $ClusterName
 
 Write-Host "`nFull deployment finished!" -ForegroundColor Green

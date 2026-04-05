@@ -68,16 +68,15 @@ def health():
 
 @app.route('/ready', methods=['GET'])
 def ready():
-    """Readiness probe - checks if the app can connect to the adapter"""
+    """Readiness probe - checks if Ollama is reachable"""
     try:
-        # Quick check if adapter is reachable
-        response = requests.get("http://llm-adapter:5000/health", timeout=2)
+        # Check if Ollama is responding
+        response = requests.get("http://ollama-service:11434/api/version", timeout=5)
         if response.status_code == 200:
             return jsonify({"status": "ready"}), 200
         else:
             return jsonify({"status": "not ready"}), 503
     except:
         return jsonify({"status": "not ready"}), 503
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
