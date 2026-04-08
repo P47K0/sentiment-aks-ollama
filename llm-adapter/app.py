@@ -38,7 +38,7 @@ JSON:"""
     }
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=30)
+        response = requests.post(f"{OLLAMA_URL.rstrip('/')}/api/generate", json=payload, timeout=30)
         response.raise_for_status()
         
         raw_output = response.json()["response"].strip()
@@ -70,13 +70,14 @@ def health():
 def ready():
     """Readiness probe - checks if Ollama is reachable"""
     try:
-        # Check if Ollama is responding
-        response = requests.get("http://ollama-service:11434/api/version", timeout=5)
+        response = requests.get(f"{OLLAMA_URL.rstrip('/')}/api/version", timeout=5)
         if response.status_code == 200:
             return jsonify({"status": "ready"}), 200
         else:
-            return jsonify({"status": "not ready"}), 503
-    except:
-        return jsonify({"status": "not ready"}), 503
+            return jsonify({"status": "not ready", "reason": f"ollama returned {response.status_code}"}), 503
+    except requests.exceptions.RequestException as e:
+        return jsonify({"status": "not ready", "reason": f"connection error: {str(e)}"}), 503
+    except Exception as e:
+        return jsonify({"status": "not ready", "reason": f"unknown error: {str(e)}"}), 503
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
