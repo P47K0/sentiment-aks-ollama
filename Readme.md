@@ -36,6 +36,7 @@ External Client → Sentiment API → LLM Adapter → Ollama (private in cluster
 
 ## Project Structure
 sentiment-aks-ollama/
+
 ├── terraform/           # AKS cluster definition
 
 ├── llm-adapter/         # LLM adapter service
