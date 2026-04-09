@@ -79,6 +79,23 @@ if ($InstallTraefik) {
     Write-Host "Skipping Ingress (sandbox mode)" -ForegroundColor Yellow
 }
 
+Write-Host "Waiting for Ollama pod to be ready (max 5 minutes)..." -ForegroundColor Yellow
+if (kubectl wait --for=condition=ready pod -l app=ollama -n $Namespace --timeout=5m) {
+    Write-Host "Ollama pod is ready." -ForegroundColor Green
+    
+    # Pull the model only if Ollama is ready
+    Write-Host "Pulling model '$Model'..." -ForegroundColor Yellow
+    kubectl exec -it deploy/ollama -n $Namespace -- ollama pull $Model
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Model pulled successfully." -ForegroundColor Green
+    } else {
+        Write-Host "Warning: Model pull failed. It will pull on first use." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Warning: Ollama pod did not become ready in time. Skipping model pull." -ForegroundColor Yellow
+    Write-Host "Ollama will pull the model automatically on first request." -ForegroundColor Yellow
+}
+
 Write-Host "`n=== Deployment Completed Successfully! ===" -ForegroundColor Green
 Write-Host "Namespace: $Namespace" -ForegroundColor Cyan
 
