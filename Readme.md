@@ -68,7 +68,9 @@ terraform init
 cd ..
 ```
 5. Run the full deployment script (replace with your actual resource group name)
-`pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"`
+```
+pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"
+```
 
 ## Learning Outcomes
 
