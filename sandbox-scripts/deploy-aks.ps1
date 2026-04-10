@@ -66,6 +66,10 @@ if ($InstallTraefik) {
     Write-Host "Skipping Traefik installation (sandbox mode)" -ForegroundColor Yellow
 }
 
+# Update ConfigMap with the selected model
+Write-Host "Updating ConfigMap with model '$Model'..." -ForegroundColor Yellow
+(Get-Content k8s/sentiment-configmap.yaml) -replace 'MODEL: ".*"', "MODEL: `"$Model`"" | Set-Content k8s/sentiment-configmap.yaml
+
 # 4. Apply all application manifests
 Write-Host "Applying application manifests..." -ForegroundColor Yellow
 

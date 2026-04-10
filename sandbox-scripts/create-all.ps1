@@ -7,13 +7,15 @@ param(
     [string]$ResourceGroupName,
     [string]$ClusterName = "aks-ollama-dev",
     [string]$Environment = "dev",
-    [bool]$InstallTraefik = $false
+    [bool]$InstallTraefik = $false,
+    [string]$Model = "phi3:mini"
 )
 
 Write-Host "=== Full Deployment Script ===" -ForegroundColor Cyan
 Write-Host "Using Resource Group: $ResourceGroupName" -ForegroundColor Yellow
-Write-Host "Cluster Name     : $ClusterName" -ForegroundColor Yellow
-Write-Host "Install Traefik  : $InstallTraefik" -ForegroundColor Yellow
+Write-Host "Cluster Name        : $ClusterName" -ForegroundColor Yellow
+Write-Host "Install Traefik     : $InstallTraefik" -ForegroundColor Yellow
+Write-Host "Model               : $Model" -ForegroundColor Yellow
 
 # Get the root of the project (one level above sandbox-scripts)
 if ($PSScriptRoot) {
@@ -47,10 +49,6 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Terraform completed successfully." -ForegroundColor Green
 
-# Wait and then run deployment
-Write-Host "Waiting for AKS to be ready..." -ForegroundColor Yellow
-Start-Sleep -Seconds 180
-
 Write-Host "Adding B4ms user nodepool..." -ForegroundColor Yellow
 az aks nodepool add `
   --resource-group $ResourceGroupName `
@@ -65,9 +63,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Waiting for B4ms user nodepool to be ready..." -ForegroundColor Yellow
-Start-Sleep -Seconds 120
+kubectl wait --for=condition=Ready node -l agentpool=userpool --timeout=5m
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Warning: Nodepool did not reach Ready state in time (continuing anyway)" -ForegroundColor Yellow
+} else {
+    Write-Host "B4ms user nodepool is Ready." -ForegroundColor Green
+}
 
 Write-Host "Running deployment script..." -ForegroundColor Yellow
-.\sandbox-scripts\deploy-aks.ps1 -InstallTraefik:$InstallTraefik -ResourceGroupName $ResourceGroupName -Environment $Environment -ClusterName $ClusterName
+.\sandbox-scripts\deploy-aks.ps1 -InstallTraefik:$InstallTraefik -ResourceGroupName $ResourceGroupName -Environment $Environment -ClusterName $ClusterName -Model $Model
 
 Write-Host "`nFull deployment finished!" -ForegroundColor Green
