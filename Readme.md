@@ -60,15 +60,19 @@ sentiment-aks-ollama/
 **How to run in the (Whizlabs) sandbox:**
 1. Log in to the Whizlabs sandbox and open Cloud Shell (PowerShell).
 3. Clone the repository:
-`git clone https://github.com/P47K0/sentiment-aks-ollama.git`
-4. Init Terraform:
+```
+git clone https://github.com/P47K0/sentiment-aks-ollama.git
+```
+5. Init Terraform:
 ```
 cd sentiment-aks-ollama/terraform
 terraform init
 cd ..
 ```
 5. Run the full deployment script (replace with your actual resource group name)
-`pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"`
+```
+pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"
+```
 
 ## Learning Outcomes
 
