@@ -1,11 +1,21 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+import json
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama-service:11434/api/generate")
 MODEL = os.environ.get("MODEL", "phi3:mini")
+PROMPT_TEMPLATE = os.environ.get("PROMPT_TEMPLATE", "")
 
 @app.route('/sentiment', methods=['POST'])
 def analyze_sentiment():
@@ -15,19 +25,11 @@ def analyze_sentiment():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    # Professional prompt for consistent output
-    prompt = f"""Analyze the sentiment of the following text.
-Return ONLY a JSON object with exactly these fields:
-{{
-  "sentiment": "POSITIVE" or "NEGATIVE" or "NEUTRAL",
-  "positive": float between 0 and 1,
-  "neutral": float between 0 and 1,
-  "negative": float between 0 and 1
-}}
+    if not PROMPT_TEMPLATE:
+        logger.error("PROMPT_TEMPLATE not found in environment")
+        return jsonify({"error": "Prompt configuration missing"}), 500
 
-Text: {text}
-
-JSON:"""
+    prompt = PROMPT_TEMPLATE.format(text=text)
 
     payload = {
         "model": MODEL,
@@ -38,28 +40,48 @@ JSON:"""
     }
 
     try:
-        response = requests.post(f"{OLLAMA_URL.rstrip('/')}/api/generate", json=payload, timeout=30)
+        response = requests.post(f"{OLLAMA_URL.rstrip('/')}/api/generate", json=payload, timeout=60)
         response.raise_for_status()
         
-        raw_output = response.json()["response"].strip()
-        
-        # Simple parsing - Ollama often returns clean JSON when asked
-        import json
+        raw_output = response.json().get("response", "").strip()
+        logger.info(f"Raw Ollama response: {raw_output[:500]}...")   # Log first 500 chars
+
+        # Try to parse JSON
         try:
-            result = json.loads(raw_output)
-        except:
-            # Fallback parsing if JSON is not perfect
+            if '{' in raw_output and '}' in raw_output:
+                # Extract JSON part if there's extra text
+                json_start = raw_output.find('{')
+                json_end = raw_output.rfind('}') + 1
+                json_part = raw_output[json_start:json_end]
+                result = json.loads(json_part)
+            else:
+                result = json.loads(raw_output)
+            
+            logger.info(f"Successfully parsed result: {result}")
+            return jsonify(result)
+
+        except json.JSONDecodeError as je:
+            logger.error(f"JSON decode error: {je}")
+            logger.error(f"Failed to parse raw output: {raw_output}")
+            # Fallback with more balanced defaults
             result = {
                 "sentiment": "NEUTRAL",
-                "positive": 0.4,
-                "neutral": 0.4,
-                "negative": 0.2
+                "positive": 0.35,
+                "neutral": 0.35,
+                "negative": 0.3
             }
+            return jsonify(result)
 
-        return jsonify(result)
-
+    except requests.exceptions.Timeout:
+        logger.error("Request to Ollama timed out")
+        return jsonify({"error": "Ollama request timed out"}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request exception: {e}")
+        return jsonify({"error": "Failed to communicate with Ollama", "details": str(e)}), 502
     except Exception as e:
-        return jsonify({"error": "Failed to analyze sentiment", "details": str(e)}), 500
+        logger.error(f"Unexpected error: {e}")
+        return jsonify({"error": "Internal error in adapter", "details": str(e)}), 500
+
 
 @app.route('/health', methods=['GET'])
 def health():

@@ -4,7 +4,8 @@ param(
     [string]$ResourceGroupName,
     [string]$ClusterName = "aks-ollama-dev",
     [string]$Environment = "dev",
-    [bool]$InstallTraefik = $false
+    [bool]$InstallTraefik = $false,
+    [string]$Model = "phi3:mini"
 )
 
 Write-Host "=== AKS Deployment Script ===" -ForegroundColor Cyan
