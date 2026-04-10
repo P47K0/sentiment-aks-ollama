@@ -57,6 +57,19 @@ sentiment-aks-ollama/
 3. Apply the Kubernetes manifests from the `k8s/` folder
 4. Access the sentiment API via the Ingress
 
+**How to run in the (Whizlabs) sandbox:**
+1. Log in to the Whizlabs sandbox and open Cloud Shell (PowerShell).
+3. Clone the repository:
+`git clone https://github.com/P47K0/sentiment-aks-ollama.git`
+4. Init Terraform:
+```
+cd sentiment-aks-ollama/terraform
+terraform init
+cd ..
+```
+5. Run the full deployment script (replace with your actual resource group name)
+`pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"`
+
 ## Learning Outcomes
 
 - Modern containerized AI workload deployment on AKS
