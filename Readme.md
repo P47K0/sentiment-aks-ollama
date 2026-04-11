@@ -17,11 +17,13 @@ External Client → Sentiment API → LLM Adapter → Ollama (private in cluster
 
 ## Features
 
-- Multi-stage Azure DevOps YAML pipeline
-- Infrastructure as Code with **Terraform** (AKS cluster + D4s_v5 nodepool)
-- Containerized services using Docker
-- Clean separation of concerns with dedicated LLM Adapter
-- ConfigMap-based configuration
+- Terraform for AKS cluster + Spot user nodepool + static Public IP
+- Multi-container architecture (Ollama + LLM Adapter + Flask API)
+- Traefik Ingress Controller with ARM64 support
+- Cost-optimized setup (Dpsv6 system pool + Spot user pool)
+- ConfigMap-driven prompt for easy customization
+- Proper health probes and resource limits
+- Full CI/CD pipeline using Azure DevOps
 - Ready for Blue-Green deployment (planned next iteration)
 
 ## Technologies Used
@@ -37,7 +39,11 @@ External Client → Sentiment API → LLM Adapter → Ollama (private in cluster
 ## Project Structure
 sentiment-aks-ollama/
 
-├── terraform/           # AKS cluster definition
+├── terraform-cicd/      # Production AKS + infrastructure
+
+├── terraform-bootstrap/ # One-time backend storage setup
+
+├── terraform-sb/        # Sandbox AKS + infrastructure
 
 ├── llm-adapter/         # LLM adapter service
 
@@ -74,9 +80,44 @@ cd ..
 pwsh ./sandbox-scripts/create-all.ps1 -ResourceGroupName "rg_sb_some_resource_group_id"
 ```
 
+## Azure DevOps Pipeline (VS Pro Subscription)
+
+The project includes a full Azure DevOps pipeline that:
+- Builds and pushes Docker images to Docker Hub
+- Deploys infrastructure with Terraform
+- Deploys Traefik via Helm
+- Deploys the application using Kubernetes manifests
+
+See azure-pipelines.yml for details.
+
+**One-time Setup**
+Create the following service connections in your Azure DevOps project:
+
+- **`VSPro-Azure-Connection`** – Azure Resource Manager connection to your VS Pro subscription
+- **`AKS-VSPro-Connection`** – Kubernetes connection to your AKS cluster
+
+After that, the pipeline will run automatically on every push to `main`.
+
+> **Note:** The pipeline is configured to work across subscriptions. Make sure the service principal has Contributor rights on the target resource group.
+
+
+## Technologies Used
+
+- Infrastructure: Terraform, AKS, Spot nodepools
+- Networking: Traefik Ingress, Static Public IP
+- Application: Ollama, Python/Flask, Docker
+- CI/CD: Azure DevOps, Docker, Helm, KubernetesManifest
+- Cost Optimization: Spot instances, Dpsv6 ARM nodes
+
+
 ## Learning Outcomes
 
+- Cost optimization strategies with Spot VMs
+- Multi-nodepool AKS design
+- Cross-subscription deployments
 - Modern containerized AI workload deployment on AKS
 - Clean architecture patterns (Adapter pattern)
 - IaC with Terraform + GitOps-style deployment
 - Practical CI/CD pipeline design for multi-service applications
+- Real-world troubleshooting (probes, image compatibility, state management)
+

@@ -1,64 +1,122 @@
 trigger:
   - main
-  
-# This tells the pipeline where your GitHub repository is
-resources:
-  repositories:
-    - repository: self
-      type: github
-      name: PR477Y75/sentiment-aks-ollama     # ← CHANGE THIS to your exact GitHub username + repo name
-      endpoint: 'GitHub'                       # Name of the service connection you created
+
+pool:
+  vmImage: 'ubuntu-latest'
 
 variables:
-  dockerUsername: 'p47r1ck75'          # ← Change to your Docker Hub username
-  imageTag: '$(Build.BuildId)'         # Uses pipeline run ID as version (professional)
-  # imageTag: '1.0.0'                  # Uncomment this if you want a fixed version
+  dockerHubUsername: 'p47r1ck75'
+  imageTag: '$(Build.BuildId)'
+  
+  environment: 'dev'
+  namespace: '$(environment)'
+  model: 'phi3:mini'
 
 stages:
 
-  - stage: Build
-    displayName: 'Build & Push Images'
-    jobs:
-      - job: Build
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
+- stage: Bootstrap
+  displayName: '1. Bootstrap Terraform Backend'
+  jobs:
+  - job: Bootstrap
+    steps:
+    - task: TerraformTaskV2
+      displayName: 'Terraform Init - Bootstrap'
+      inputs:
+        provider: 'AzureRM'
+        command: 'init'
+        workingDirectory: 'terraform-bootstrap'
 
-          - task: Docker@2
-            displayName: 'Build and push llm-adapter'
+    - task: TerraformTaskV2
+      displayName: 'Terraform Apply - Backend Storage'
+      inputs:
+        provider: 'AzureRM'
+        command: 'apply'
+        workingDirectory: 'terraform-bootstrap'
+        environmentServiceName: 'VSPro-Azure-Connection'
+
+- stage: Build
+  displayName: '2. Build & Push Docker Images'
+  dependsOn: Bootstrap
+  jobs:
+  - job: BuildImages
+    steps:
+    - task: Docker@2
+      displayName: 'Build & Push llm-adapter'
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/llm-adapter'
+        dockerfile: 'llm-adapter/Dockerfile'
+        tags: '$(imageTag),latest'
+
+    - task: Docker@2
+      displayName: 'Build & Push sentiment-api'
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/sentiment-api'
+        dockerfile: 'sentiment-api/Dockerfile'
+        tags: '$(imageTag),latest'
+
+- stage: Deploy
+  displayName: '3. Deploy to AKS'
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: 'Deploy'
+    environment: '$(environment)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: TerraformTaskV2
+            displayName: 'Terraform Init - Main'
             inputs:
-              command: buildAndPush
-              repository: $(dockerUsername)/llm-adapter
-              tags: |
-                $(imageTag)
-                latest
-              Dockerfile: 'llm-adapter/Dockerfile'
+              provider: 'AzureRM'
+              command: 'init'
+              workingDirectory: 'terraform-cicd'
 
-          - task: Docker@2
-            displayName: 'Build and push sentiment-api'
+          - task: TerraformTaskV2
+            displayName: 'Terraform Apply - AKS + Nodepool'
             inputs:
-              command: buildAndPush
-              repository: $(dockerUsername)/sentiment-api
-              tags: |
-                $(imageTag)
-                latest
-              Dockerfile: 'sentiment-api/Dockerfile'
+              provider: 'AzureRM'
+              command: 'apply'
+              workingDirectory: 'terraform-cicd'
+              environmentServiceName: 'VSPro-Azure-Connection'
+              variables: |
+                -var="resource_group_name=$(ResourceGroupName)"
+                -var="user_nodepool_enabled=true"
 
-  - stage: Deploy
-    displayName: 'Deploy to AKS'
-    dependsOn: Build
-    condition: succeeded()
-    jobs:
-      - deployment: DeployToAKS
-        displayName: 'Deploy Application'
-        environment: 'dev'                     # You can change this or remove it
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - task: KubernetesManifest@1
-                  displayName: 'Deploy to AKS'
-                  inputs:
-                    action: 'deploy'
-                    kubernetesServiceConnection: 'aks-service-connection'   # Create this in Azure DevOps
-                    manifests: 'k8s/*.yaml'
+          - task: PowerShell@2
+            displayName: 'Create Kubernetes Namespaces'
+            inputs:
+              targetType: 'inline'
+              script: |
+                kubectl create namespace $(namespace) --dry-run=client -o yaml | kubectl apply -f -
+                kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f -
+
+          - task: HelmDeploy@0
+            displayName: 'Deploy Traefik'
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: 'ingress'
+              command: 'upgrade'
+              chartType: 'Name'
+              chartName: 'traefik/traefik'
+              releaseName: 'traefik'
+              valueFile: 'k8s/traefik-values.yaml'
+              arguments: '--create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
+
+          - task: KubernetesManifest@1
+            displayName: 'Deploy Application'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: '$(namespace)'
+              manifests: |
+                k8s/sentiment-configmap.yaml
+                k8s/ollama-deployment.yaml
+                k8s/llm-adapter-deployment.yaml
+                k8s/sentiment-api-deployment.yaml
+                k8s/sentiment-api-service.yaml
+                k8s/sentiment-api-ingress.yaml
