@@ -1,0 +1,79 @@
+trigger:
+  - none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  dockerHubUsername: 'p47r1ck75'
+  imageTag: '$(Build.BuildId)'
+  
+  environment: 'dev'
+  namespace: '$(environment)'
+  model: 'phi3:mini'
+
+stages:
+
+- stage: Bootstrap
+  displayName: '1. Bootstrap Terraform Backend'
+  jobs:
+  - job: Bootstrap
+    steps:
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Init - Bootstrap'
+      inputs:
+        provider: 'AzureRM'
+        command: 'init'
+        workingDirectory: 'terraform-bootstrap'
+
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Apply - Backend Storage'
+      inputs:
+        provider: 'AzureRM'
+        command: 'apply'
+        workingDirectory: 'terraform-bootstrap'
+        environmentServiceName: 'VSPro-Azure-Connection'
+
+- stage: Infrastructure
+  displayName: '2. Create AKS Infrastructure'
+  dependsOn: Bootstrap
+  jobs:
+  - job: TerraformAKS
+    steps:
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Init - Main'
+      inputs:
+        provider: 'AzureRM'
+        command: 'init'
+        workingDirectory: 'terraform-prod'
+
+    - task: TerraformTaskV2@2
+      displayName: 'Terraform Apply - AKS + Nodepool + IP'
+      inputs:
+        provider: 'AzureRM'
+        command: 'apply'
+        workingDirectory: 'terraform-prod'
+        environmentServiceName: 'VSPro-Azure-Connection'
+        variables: |
+          -var="resource_group_name=$(ResourceGroupName)"
+          -var="user_nodepool_enabled=true"
+    
+    # Final helpful message
+    - task: PowerShell@2
+      displayName: 'IMPORTANT NEXT STEP'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "==================================================================" -ForegroundColor Green
+          Write-Host "INFRASTRUCTURE CREATION COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "NEXT STEP:" -ForegroundColor Yellow
+          Write-Host "Please create the Kubernetes service connection now:" -ForegroundColor Yellow
+          Write-Host "1. Go to Project Settings → Service connections → New service connection" -ForegroundColor Yellow
+          Write-Host "2. Choose 'Kubernetes'" -ForegroundColor Yellow
+          Write-Host "3. Authentication method: 'Azure Subscription'" -ForegroundColor Yellow
+          Write-Host "4. Select your VS Pro subscription and the cluster 'aks-ollama-dev'" -ForegroundColor Yellow
+          Write-Host "5. Service connection name: exactly 'AKS-VSPro-Connection'" -ForegroundColor Yellow
+          Write-Host ""
+          Write-Host "After creating it, run the main deployment pipeline (azure-pipelines.yml)" -ForegroundColor Yellow
+          Write-Host "==================================================================" -ForegroundColor Green
