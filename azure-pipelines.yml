@@ -19,14 +19,14 @@ stages:
   jobs:
   - job: Bootstrap
     steps:
-    - task: TerraformTaskV2
+    - task: Terraform@1
       displayName: 'Terraform Init - Bootstrap'
       inputs:
         provider: 'AzureRM'
         command: 'init'
         workingDirectory: 'terraform-bootstrap'
 
-    - task: TerraformTaskV2
+    - task: Terraform@1
       displayName: 'Terraform Apply - Backend Storage'
       inputs:
         provider: 'AzureRM'
@@ -34,9 +34,33 @@ stages:
         workingDirectory: 'terraform-bootstrap'
         environmentServiceName: 'VSPro-Azure-Connection'
 
+- stage: Infrastructure
+  displayName: '2. Create AKS Infrastructure'
+  dependsOn: Bootstrap
+  jobs:
+  - job: TerraformAKS
+    steps:
+    - task: Terraform@1
+      displayName: 'Terraform Init - Main'
+      inputs:
+        provider: 'AzureRM'
+        command: 'init'
+        workingDirectory: 'terraform-prod'
+
+    - task: Terraform@1
+      displayName: 'Terraform Apply - AKS + Nodepool + IP'
+      inputs:
+        provider: 'AzureRM'
+        command: 'apply'
+        workingDirectory: 'terraform-prod'
+        environmentServiceName: 'VSPro-Azure-Connection'
+        variables: |
+          -var="resource_group_name=$(ResourceGroupName)"
+          -var="user_nodepool_enabled=true"
+
 - stage: Build
   displayName: '2. Build & Push Docker Images'
-  dependsOn: Bootstrap
+  dependsOn: Infrastructure
   jobs:
   - job: BuildImages
     steps:
@@ -68,23 +92,24 @@ stages:
         deploy:
           steps:
 
-          - task: TerraformTaskV2
-            displayName: 'Terraform Init - Main'
+          # === Wait for manual service connection creation ===
+          - task: PowerShell@2
+            displayName: 'WAIT - Create AKS-VSPro-Connection Now'
             inputs:
-              provider: 'AzureRM'
-              command: 'init'
-              workingDirectory: 'terraform-cicd'
-
-          - task: TerraformTaskV2
-            displayName: 'Terraform Apply - AKS + Nodepool'
-            inputs:
-              provider: 'AzureRM'
-              command: 'apply'
-              workingDirectory: 'terraform-cicd'
-              environmentServiceName: 'VSPro-Azure-Connection'
-              variables: |
-                -var="resource_group_name=$(ResourceGroupName)"
-                -var="user_nodepool_enabled=true"
+              targetType: 'inline'
+              script: |
+                Write-Host "=================================================================="
+                Write-Host "IMPORTANT: Please create the 'AKS-VSPro-Connection' now!"
+                Write-Host ""
+                Write-Host "Go to: Project Settings → Service connections → New service connection"
+                Write-Host "Choose: Kubernetes → Azure Subscription"
+                Write-Host "Select your VS Pro subscription and the AKS cluster."
+                Write-Host "Name it exactly: AKS-VSPro-Connection"
+                Write-Host ""
+                Write-Host "After you create it, click 'Approve' below to continue."
+                Write-Host "=================================================================="
+                Write-Host "Waiting 60 seconds for you to create the connection..."
+                Start-Sleep -Seconds 60          
 
           - task: PowerShell@2
             displayName: 'Create Kubernetes Namespaces'
