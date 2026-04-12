@@ -26,6 +26,16 @@ stages:
           terraform init
 
     - task: AzureCLI@2
+      displayName: 'Import Storage Account (safe to run multiple times)'
+      inputs:
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'powershellCore'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          cd terraform-bootstrap
+          terraform import azurerm_storage_account.tfstate /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroupName)/providers/Microsoft.Storage/storageAccounts/$(StorageAccountName) || echo "Import skipped (already imported or not needed)"
+
+    - task: AzureCLI@2
       displayName: 'Terraform Apply - Backend Storage'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
@@ -33,7 +43,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
-          terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)"
+          terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="storage_account_name=$(StorageAccountName)"
 - stage: Infrastructure
   displayName: '2. Create AKS Infrastructure'
   dependsOn: Bootstrap
