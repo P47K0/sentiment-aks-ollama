@@ -23,7 +23,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
-          terraform init
+          terraform init -backend-config="resource_group_name=$(ResourceGroupName)" -backend-config="storage_account_name=$(StorageAccountName)" -backend-config="container_name=tfstate" -backend-config="key=bootstrap.tfstate"
 
     - task: AzureCLI@2
       displayName: 'Create Backend Storage if not exists'
