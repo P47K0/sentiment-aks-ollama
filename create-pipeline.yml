@@ -14,24 +14,21 @@ stages:
   jobs:
   - job: Bootstrap
     steps:
-    - task: TerraformTaskV1@0
+    - task: PowerShell@2
       displayName: 'Terraform Init - Bootstrap'
       inputs:
-        provider: 'AzureRM'
-        command: 'init'
-        workingDirectory: 'terraform-bootstrap'
-        backendServiceArm: 'VSPro-Azure-Connection'
+        targetType: 'inline'
+        script: |
+          cd terraform-bootstrap
+          terraform init
 
-    - task: TerraformTaskV1@0
+    - task: PowerShell@2
       displayName: 'Terraform Apply - Backend Storage'
       inputs:
-        provider: 'AzureRM'
-        command: 'apply'
-        workingDirectory: 'terraform-bootstrap'
-        backendServiceArm: 'VSPro-Azure-Connection'
-        environmentServiceName: 'VSPro-Azure-Connection'
-        variables: |
-          -var="location=$(location)"
+        targetType: 'inline'
+        script: |
+          cd terraform-bootstrap
+          terraform apply -auto-approve -var="location=$(location)"
 
 - stage: Infrastructure
   displayName: '2. Create AKS Infrastructure'
@@ -39,26 +36,24 @@ stages:
   jobs:
   - job: TerraformAKS
     steps:
-    - task: TerraformTaskV1@0
+    - task: PowerShell@2
       displayName: 'Terraform Init - Main'
       inputs:
-        provider: 'AzureRM'
-        command: 'init'
-        workingDirectory: 'terraform-prod'
-        backendServiceArm: 'VSPro-Azure-Connection'
+        targetType: 'inline'
+        script: |
+          cd terraform-prod
+          terraform init
 
-    - task: TerraformTaskV1@0
+    - task: PowerShell@2
       displayName: 'Terraform Apply - AKS + Nodepool + IP'
       inputs:
-        provider: 'AzureRM'
-        command: 'apply'
-        workingDirectory: 'terraform-prod'
-        backendServiceArm: 'VSPro-Azure-Connection'
-        environmentServiceName: 'VSPro-Azure-Connection'
-        variables: |
-          -var="resource_group_name=$(ResourceGroupName)"
-          -var="user_nodepool_enabled=true"        
-          -var="location=$(location)"
+        targetType: 'inline'
+        script: |
+          cd terraform-prod
+          terraform apply -auto-approve \
+            -var="resource_group_name=$(ResourceGroupName)" \
+            -var="location=$(location)" \
+            -var="user_nodepool_enabled=true"
     
     # Final helpful message
     - task: PowerShell@2
