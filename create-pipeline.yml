@@ -1,10 +1,10 @@
-trigger:
-  - none
+# create-pipeline.yaml
+trigger: none
 
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:  
+variables:
   location: 'centralindia'
 
 stages:
@@ -14,28 +14,24 @@ stages:
   jobs:
   - job: Bootstrap
     steps:
+    - template: templates/install-terraform.yml
     - task: AzureCLI@2
-      displayName: 'Azure Login (Bootstrap)'
+      displayName: 'Terraform Init - Bootstrap'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          echo "Logged in successfully"
-    - template: templates/install-terraform.yaml
-    - task: PowerShell@2
-      displayName: 'Terraform Init - Bootstrap'
-      inputs:
-        targetType: 'inline'
-        script: |
           cd terraform-bootstrap
           terraform init
 
-    - task: PowerShell@2
+    - task: AzureCLI@2
       displayName: 'Terraform Apply - Backend Storage'
       inputs:
-        targetType: 'inline'
-        script: |
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           cd terraform-bootstrap
           terraform apply -auto-approve -var="location=$(location)"
 
@@ -45,50 +41,26 @@ stages:
   jobs:
   - job: TerraformAKS
     steps:
+    - template: templates/install-terraform.yml
     - task: AzureCLI@2
-      displayName: 'Azure Login (Bootstrap)'
+      displayName: 'Terraform Init - Main'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          echo "Logged in successfully"
-    - template: templates/install-terraform.yaml
-    - task: PowerShell@2
-      displayName: 'Terraform Init - Main'
-      inputs:
-        targetType: 'inline'
-        script: |
           cd terraform-prod
           terraform init
 
-    - task: PowerShell@2
+    - task: AzureCLI@2
       displayName: 'Terraform Apply - AKS + Nodepool + IP'
       inputs:
-        targetType: 'inline'
-        script: |
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           cd terraform-prod
           terraform apply -auto-approve \
             -var="resource_group_name=$(ResourceGroupName)" \
             -var="location=$(location)" \
             -var="user_nodepool_enabled=true"
-    
-    # Final helpful message
-    - task: PowerShell@2
-      displayName: 'IMPORTANT NEXT STEP'
-      inputs:
-        targetType: 'inline'
-        script: |
-          Write-Host "==================================================================" -ForegroundColor Green
-          Write-Host "INFRASTRUCTURE CREATION COMPLETED SUCCESSFULLY!" -ForegroundColor Green
-          Write-Host ""
-          Write-Host "NEXT STEP:" -ForegroundColor Yellow
-          Write-Host "Please create the Kubernetes service connection now:" -ForegroundColor Yellow
-          Write-Host "1. Go to Project Settings → Service connections → New service connection" -ForegroundColor Yellow
-          Write-Host "2. Choose 'Kubernetes'" -ForegroundColor Yellow
-          Write-Host "3. Authentication method: 'Azure Subscription'" -ForegroundColor Yellow
-          Write-Host "4. Select your VS Pro subscription and the cluster 'aks-ollama-dev'" -ForegroundColor Yellow
-          Write-Host "5. Service connection name: exactly 'AKS-VSPro-Connection'" -ForegroundColor Yellow
-          Write-Host ""
-          Write-Host "After creating it, run the main deployment pipeline (azure-pipelines.yml)" -ForegroundColor Yellow
-          Write-Host "==================================================================" -ForegroundColor Green
