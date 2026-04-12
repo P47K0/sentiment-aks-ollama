@@ -33,7 +33,9 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
-          terraform import azurerm_storage_account.tfstate /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroupName)/providers/Microsoft.Storage/storageAccounts/$(StorageAccountName) || echo "Import skipped (already imported or not needed)"
+          # Try to import, but continue even if it fails (already imported)
+          terraform import azurerm_storage_account.tfstate /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroupName)/providers/Microsoft.Storage/storageAccounts/tfstatep47k0 2>&1 | Out-Null
+          Write-Host "Import attempt completed (safe to ignore if already imported)."
 
     - task: AzureCLI@2
       displayName: 'Terraform Apply - Backend Storage'
