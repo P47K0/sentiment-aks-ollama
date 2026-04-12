@@ -20,6 +20,7 @@ stages:
         provider: 'AzureRM'
         command: 'init'
         workingDirectory: 'terraform-bootstrap'
+        backendServiceArm: 'VSPro-Azure-Connection'
 
     - task: TerraformTaskV1@0
       displayName: 'Terraform Apply - Backend Storage'
@@ -27,6 +28,7 @@ stages:
         provider: 'AzureRM'
         command: 'apply'
         workingDirectory: 'terraform-bootstrap'
+        backendServiceArm: 'VSPro-Azure-Connection'
         environmentServiceName: 'VSPro-Azure-Connection'
         variables: |
           -var="location=$(location)"
@@ -43,6 +45,7 @@ stages:
         provider: 'AzureRM'
         command: 'init'
         workingDirectory: 'terraform-prod'
+        backendServiceArm: 'VSPro-Azure-Connection'
 
     - task: TerraformTaskV1@0
       displayName: 'Terraform Apply - AKS + Nodepool + IP'
@@ -50,6 +53,7 @@ stages:
         provider: 'AzureRM'
         command: 'apply'
         workingDirectory: 'terraform-prod'
+        backendServiceArm: 'VSPro-Azure-Connection'
         environmentServiceName: 'VSPro-Azure-Connection'
         variables: |
           -var="resource_group_name=$(ResourceGroupName)"
