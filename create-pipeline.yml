@@ -14,6 +14,14 @@ stages:
   jobs:
   - job: Bootstrap
     steps:
+    - task: AzureCLI@2
+      displayName: 'Azure Login (Bootstrap)'
+      inputs:
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Logged in successfully"
     - template: templates/install-terraform.yaml
     - task: PowerShell@2
       displayName: 'Terraform Init - Bootstrap'
@@ -37,6 +45,14 @@ stages:
   jobs:
   - job: TerraformAKS
     steps:
+    - task: AzureCLI@2
+      displayName: 'Azure Login (Bootstrap)'
+      inputs:
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Logged in successfully"
     - template: templates/install-terraform.yaml
     - task: PowerShell@2
       displayName: 'Terraform Init - Main'
