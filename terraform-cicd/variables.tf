@@ -7,7 +7,7 @@ variable "cluster_name" {
 }
 
 variable "location" {
-  default = "westeurope"
+  default = "centralindia"
 }
 
 variable "user_nodepool_enabled" {

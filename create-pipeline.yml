@@ -4,13 +4,8 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:
-  dockerHubUsername: 'p47r1ck75'
-  imageTag: '$(Build.BuildId)'
-  
-  environment: 'dev'
-  namespace: '$(environment)'
-  model: 'phi3:mini'
+variables:  
+  location: 'centralindia'
 
 stages:
 
@@ -33,6 +28,8 @@ stages:
         command: 'apply'
         workingDirectory: 'terraform-bootstrap'
         environmentServiceName: 'VSPro-Azure-Connection'
+        variables: |
+          -var="location=$(location)"
 
 - stage: Infrastructure
   displayName: '2. Create AKS Infrastructure'
@@ -56,7 +53,8 @@ stages:
         environmentServiceName: 'VSPro-Azure-Connection'
         variables: |
           -var="resource_group_name=$(ResourceGroupName)"
-          -var="user_nodepool_enabled=true"
+          -var="user_nodepool_enabled=true"        
+          -var="location=$(location)"
     
     # Final helpful message
     - task: PowerShell@2
