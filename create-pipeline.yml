@@ -14,7 +14,7 @@ stages:
   jobs:
   - job: Bootstrap
     steps:
-    - template: templates/install-terraform.yml
+    - template: templates/install-terraform.yaml
     - task: PowerShell@2
       displayName: 'Terraform Init - Bootstrap'
       inputs:
@@ -37,7 +37,7 @@ stages:
   jobs:
   - job: TerraformAKS
     steps:
-    - template: templates/install-terraform.yml
+    - template: templates/install-terraform.yaml
     - task: PowerShell@2
       displayName: 'Terraform Init - Main'
       inputs:
