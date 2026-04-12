@@ -26,26 +26,24 @@ stages:
           terraform init
 
     - task: AzureCLI@2
-      displayName: 'Import Storage Account'
+      displayName: 'Create Backend Storage if not exists'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
         scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
-          # Try to import, but continue even if it fails (already imported)
-          terraform import azurerm_storage_account.tfstate /subscriptions/$(SubscriptionId)/resourceGroups/$(ResourceGroupName)/providers/Microsoft.Storage/storageAccounts/$(StorageAccountName) 2>&1 | Out-Null
-          Write-Host "Import attempt completed (safe to ignore if already imported)."
+          
+          # Check if storage account already exists
+          $accountExists = az storage account show --name $(StorageAccountName) --resource-group $(ResourceGroupName) --query "name" -o tsv 2>$null
+          
+          if ($accountExists) {
+            Write-Host "Storage account '$(StorageAccountName)' already exists. Skipping creation."
+          } else {
+            Write-Host "Storage account does not exist. Creating it..."
+            terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="storage_account_name=$(StorageAccountName)"
+          }
 
-    - task: AzureCLI@2
-      displayName: 'Terraform Apply - Backend Storage'
-      inputs:
-        azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'pscore'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          cd terraform-bootstrap
-          terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="storage_account_name=$(StorageAccountName)"
 - stage: Infrastructure
   displayName: '2. Create AKS Infrastructure'
   dependsOn: Bootstrap
