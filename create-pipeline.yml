@@ -26,10 +26,10 @@ stages:
           terraform init
 
     - task: AzureCLI@2
-      displayName: 'Import Storage Account (safe to run multiple times)'
+      displayName: 'Import Storage Account'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'powershellCore'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
