@@ -69,4 +69,4 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-cicd
-          terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="user_nodepool_enabled=true"
+          terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="user_nodepool_enabled=true" -var="storage_account_name=$(StorageAccountName)"
