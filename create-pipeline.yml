@@ -9,6 +9,22 @@ variables:
 
 stages:
 
+- stage: InstallTerraform
+  displayName: '0. Install Terraform CLI'
+  jobs:
+  - job: Install
+    steps:
+    - task: PowerShell@2
+      displayName: 'Install Terraform'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Installing Terraform..."
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get update && sudo apt-get install terraform -y
+          terraform version
+
 - stage: Bootstrap
   displayName: '1. Bootstrap Terraform Backend'
   jobs:
