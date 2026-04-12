@@ -44,17 +44,18 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-# Spot user nodepool for Ollama
 resource "azurerm_kubernetes_cluster_node_pool" "userpool" {
-  count = var.user_nodepool_enabled ? 1 : 0
-
   name                  = "userpool"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-  vm_size               = "Standard_D4s_v5"
-  node_count            = 1
-  mode                  = "User"
+  vm_size               = "Standard_D4s_v5"      # Working size
+  node_count            = 1                      # One node is enough
+  priority              = "Regular"              # No Spot for stability
 
-  priority        = "Spot"
-  eviction_policy = "Delete"
-  spot_max_price  = -1
+  node_labels = {
+    "agentpool" = "userpool"
+  }
+
+  tags = {
+    environment = "dev"
+  }
 }
