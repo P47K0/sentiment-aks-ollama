@@ -1,0 +1,14 @@
+parameters:
+  displayName: 'Install Terraform'
+
+steps:
+- task: PowerShell@2
+  displayName: ${{ parameters.displayName }}
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo "Installing Terraform..."
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+      sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+      sudo apt-get update && sudo apt-get install terraform -y
+      terraform version
