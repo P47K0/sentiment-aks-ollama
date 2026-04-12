@@ -15,7 +15,6 @@ variables:
 stages:
 - stage: Build
   displayName: '2. Build & Push Docker Images'
-  dependsOn: Infrastructure
   jobs:
   - job: BuildImages
     steps:
