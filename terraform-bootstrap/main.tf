@@ -13,7 +13,7 @@ resource "azurerm_storage_account" "tfstate" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   access_tier              = "Cool"
-  allow_blob_public_access = false
+  #allow_blob_public_access = false
 }
 
 resource "azurerm_storage_container" "tfstate" {
