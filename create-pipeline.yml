@@ -19,7 +19,7 @@ stages:
       displayName: 'Terraform Init - Bootstrap'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'powershell'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
@@ -29,7 +29,7 @@ stages:
       displayName: 'Terraform Apply - Backend Storage'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'powershell'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
@@ -46,7 +46,7 @@ stages:
       displayName: 'Terraform Init - Main'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'powershell'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-prod
@@ -56,7 +56,7 @@ stages:
       displayName: 'Terraform Apply - AKS + Nodepool + IP'
       inputs:
         azureSubscription: 'VSPro-Azure-Connection'
-        scriptType: 'powershell'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-prod
