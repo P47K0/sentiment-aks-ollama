@@ -33,9 +33,9 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-bootstrap
-          terraform apply -auto-approve `
-          -var="resource_group_name=$(ResourceGroupName)" `
-          -var="location=$(location)" `
+          terraform apply -auto-approve \
+          -var="resource_group_name=$(ResourceGroupName)" \
+          -var="location=$(location)" \
 
 
 
@@ -64,7 +64,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd terraform-prod
-          terraform apply -auto-approve `
-            -var="resource_group_name=$(ResourceGroupName)" `
-            -var="location=$(location)" `
+          terraform apply -auto-approve \
+            -var="resource_group_name=$(ResourceGroupName)" \
+            -var="location=$(location)" \
             -var="user_nodepool_enabled=true"
