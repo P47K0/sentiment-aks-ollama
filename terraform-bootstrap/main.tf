@@ -1,6 +1,10 @@
 # =============================================
 # Terraform Backend Storage (Cool tier)
 # =============================================
+provider "azurerm" {
+  features {}
+}
+
 resource "azurerm_resource_group" "tfstate" {
   name     = "rg-terraform-state"
   location = var.location
