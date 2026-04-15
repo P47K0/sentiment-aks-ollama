@@ -75,7 +75,7 @@ stages:
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
               valueFile: 'k8s/traefik-values.yaml'
-              arguments: '--create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
+              arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
