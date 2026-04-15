@@ -50,13 +50,19 @@ stages:
       runOnce:
         deploy:
           steps:
-          - task: PowerShell@2
-            displayName: 'Create Kubernetes Namespaces'
+          - task: Bash@3
+            displayName: '📁 Create Kubernetes Namespaces'
             inputs:
               targetType: 'inline'
               script: |
+                echo "Creating namespace: $(namespace)"
                 kubectl create namespace $(namespace) --dry-run=client -o yaml | kubectl apply -f -
+                
+                echo "Creating namespace: ingress"
                 kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f -
+                
+                echo "✅ Namespaces are ready"
+            failOnStderr: true
 
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
