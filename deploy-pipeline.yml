@@ -50,13 +50,29 @@ stages:
       runOnce:
         deploy:
           steps:
-          - task: PowerShell@2
-            displayName: 'Create Kubernetes Namespaces'
+          - task: KubernetesManifest@1
+            displayName: 'Create dev namespace'
             inputs:
-              targetType: 'inline'
-              script: |
-                kubectl create namespace $(namespace) --dry-run=client -o yaml | kubectl apply -f -
-                kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f -
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: 'dev'
+              manifests: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: dev
+
+          - task: KubernetesManifest@1
+            displayName: 'Create ingress namespace'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: 'ingress'
+              manifests: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: ingress
 
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
