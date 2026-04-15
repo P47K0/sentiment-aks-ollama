@@ -51,7 +51,7 @@ stages:
         deploy:
           steps:
           - task: Bash@3
-            displayName: '📁 Create Kubernetes Namespaces'
+            displayName: 'Create Kubernetes Namespaces'
             inputs:
               targetType: 'inline'
               script: |
@@ -61,8 +61,7 @@ stages:
                 echo "Creating namespace: ingress"
                 kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f -
                 
-                echo "✅ Namespaces are ready"
-            failOnStderr: true
+                echo "Namespaces are ready"
 
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
