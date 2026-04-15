@@ -18,6 +18,11 @@ stages:
   jobs:
   - job: BuildImages
     steps:
+
+    - script: |
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+      displayName: '🔑 Docker Login to Docker Hub'
+
     - task: Docker@2
       displayName: 'Build & Push llm-adapter'
       inputs:
