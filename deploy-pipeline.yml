@@ -67,7 +67,6 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              valueFile: 'k8s/traefik-values.yaml'
               arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
 
           - task: Bash@3
