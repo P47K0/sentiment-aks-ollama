@@ -50,6 +50,13 @@ stages:
       runOnce:
         deploy:
           steps:
+          - script: |
+              echo "Adding Traefik Helm repository..."
+              helm repo add traefik https://traefik.github.io/charts
+              helm repo update
+              echo "Traefik repo added and updated"
+            displayName: 'Add Traefik Helm Repo'
+
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
             inputs:
@@ -64,7 +71,7 @@ stages:
               arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
 
           - task: Bash@3
-            displayName: '📁 Create Kubernetes Namespace'
+            displayName: 'Create Kubernetes Namespace'
             inputs:
               targetType: 'inline'
               script: |
