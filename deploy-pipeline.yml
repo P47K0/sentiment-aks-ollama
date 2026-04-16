@@ -74,7 +74,7 @@ stages:
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              manifests: 'k8s/*.yml'   
+              manifests: '$(Pipeline.Workspace)/k8s/namespace.yml'   
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
@@ -82,4 +82,4 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
-              manifests: 'k8s/*.yaml'
+              manifests: '$(Pipeline.Workspace)/k8s/*.yaml'
