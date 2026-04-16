@@ -3,12 +3,11 @@ kind: Ingress
 metadata:
   name: sentiment-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   ingressClassName: traefik
   rules:
-  - host: sentiment-demo.local     # Change this to your domain or use a fake one for demo
-    http:
+    - http:
       paths:
       - path: /
         pathType: Prefix
@@ -16,4 +15,4 @@ spec:
           service:
             name: sentiment-api
             port:
-              number: 5000
+              number: 80

@@ -14,9 +14,9 @@ data:
     Text: {text}
 
     Respond with exactly this JSON format and nothing else:
-    {
+    {{
       "sentiment": "POSITIVE" or "NEGATIVE" or "NEUTRAL",
       "positive": number between 0.0 and 1.0,
       "neutral": number between 0.0 and 1.0,
       "negative": number between 0.0 and 1.0
-    }
+    }}
