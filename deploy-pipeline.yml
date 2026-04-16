@@ -69,21 +69,16 @@ stages:
               releaseName: 'traefik'
               arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
 
-          - task: Bash@3
-            displayName: 'Create Namespaces'
+          - task: KubernetesManifest@1
+            displayName: 'Create Namespace'
             inputs:
-              targetType: 'inline'
-              script: |
-                echo "Creating namespace: $(namespace)"
-                kubectl create namespace $(namespace) --dry-run=client -o yaml | kubectl apply -f - --validate=false
-                
-                echo "Creating namespace: ingress"
-                kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f - --validate=false
-                
-                kubectl get ns
-                echo "Namespaces are ready"
-            env:
-              KUBECONFIG: $(Agent.TempDirectory)/kubeconfig
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              manifests: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: dev               
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
@@ -91,10 +86,4 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
-              manifests: |
-                k8s/sentiment-configmap.yaml
-                k8s/ollama-deployment.yaml
-                k8s/llm-adapter-deployment.yaml
-                k8s/sentiment-api-deployment.yaml
-                k8s/sentiment-api-service.yaml
-                k8s/sentiment-api-ingress.yaml
+              manifests: 'k8s/*.yaml'
