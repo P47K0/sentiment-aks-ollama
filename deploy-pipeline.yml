@@ -50,6 +50,9 @@ stages:
       runOnce:
         deploy:
           steps:
+          - checkout: self
+            clean: true
+
           - script: |
               echo "Adding Traefik Helm repository..."
               helm repo add traefik https://traefik.github.io/charts
@@ -74,7 +77,7 @@ stages:
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              manifests: '$(Pipeline.Workspace)/k8s/namespace.yml'   
+              manifests: 'k8s/namespace.yml'   
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
@@ -82,4 +85,4 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
-              manifests: '$(Pipeline.Workspace)/k8s/*.yaml'
+              manifests: 'k8s/*.yaml'
