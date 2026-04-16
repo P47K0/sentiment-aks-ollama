@@ -74,11 +74,7 @@ stages:
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              manifests: |
-                apiVersion: v1
-                kind: Namespace
-                metadata:
-                  name: dev               
+              manifests: 'k8s/namespace.yml'   
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
