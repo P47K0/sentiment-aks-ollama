@@ -70,12 +70,20 @@ stages:
               arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
 
           - task: Bash@3
-            displayName: 'Create Kubernetes Namespace'
+            displayName: 'Create Namespaces'
             inputs:
               targetType: 'inline'
               script: |
                 echo "Creating namespace: $(namespace)"
                 kubectl create namespace $(namespace) --dry-run=client -o yaml | kubectl apply -f - --validate=false
+                
+                echo "Creating namespace: ingress"
+                kubectl create namespace ingress --dry-run=client -o yaml | kubectl apply -f - --validate=false
+                
+                kubectl get ns
+                echo "Namespaces are ready"
+            env:
+              KUBECONFIG: $(Agent.TempDirectory)/kubeconfig
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
