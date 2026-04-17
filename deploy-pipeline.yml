@@ -50,6 +50,31 @@ stages:
       runOnce:
         deploy:
           steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Traefik IP Artifact'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProject)'
+              pipeline: 'P47K0.sentiment-aks-ollama - Create'
+              artifact: 'traefik-ip'
+              path: '$(Pipeline.Workspace)/traefik-ip'
+
+          - task: PowerShell@2
+            displayName: 'Read Traefik Public IP'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $ipFile = "$(Pipeline.Workspace)/traefik-ip/traefik-public-ip.txt"
+                if (Test-Path $ipFile) {
+                  $ip = Get-Content $ipFile -Raw
+                  $ip = $ip.Trim()
+                  Write-Host "Loaded Traefik Public IP: $ip"
+                  Write-Host "##vso[task.setvariable variable=traefikPublicIp]$ip"
+                } else {
+                  Write-Host "##vso[task.logissue type=error]Traefik IP file not found!"
+                  exit 1
+                }
+
           - checkout: self
             clean: true
 
@@ -70,14 +95,14 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(TerraformOutput.traefik_public_ip)'          
+              arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(traefikPublicIp)'          
 
-          - task: KubernetesManifest@1
-            displayName: 'Create Namespace'
+          - task: Kubernetes@1
+            displayName: 'Create $(namespace) Namespace'
             inputs:
-              action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              manifests: 'k8s/namespace.yml'   
+              command: 'create'
+              arguments: 'namespace $(namespace)'
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
@@ -86,3 +111,19 @@ stages:
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
               manifests: 'k8s/*.yaml'
+
+          - task: Kubernetes@1
+            displayName: 'Wait for Ollama Pod'
+            inputs:
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              command: 'wait'
+              arguments: '--for=condition=ready pod -l app=ollama -n dev --timeout=300s'
+              namespace: '$(namespace)'
+
+          - task: Kubernetes@1
+            displayName: 'Pull Ollama Model'
+            inputs:
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              command: 'exec'
+              arguments: 'deploy/ollama -- ollama pull phi3:mini'
+              namespace: '$(namespace)'
