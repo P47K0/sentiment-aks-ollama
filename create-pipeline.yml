@@ -71,20 +71,21 @@ stages:
           cd terraform-cicd
           terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="user_nodepool_enabled=true" -var="storage_account_name=$(StorageAccountName)"
 
-        - task: PowerShell@2
-          displayName: 'Save Traefik Public IP to file'
-          inputs:
-            targetType: 'inline'
-            script: |
-              cd terraform-prod
-              $ip = terraform output -raw traefik_public_ip
-              $ip | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/traefik-public-ip.txt" -Encoding utf8
-              Write-Host "Saved Traefik Public IP: $ip"
-          name: SaveIP
+    - task: AzureCLI@2
+      displayName: 'Save Traefik Public IP to file'
+      inputs:
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: 'pscore'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+            cd terraform-prod
+            $ip = terraform output -raw traefik_public_ip
+            $ip | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/traefik-public-ip.txt" -Encoding utf8
+            Write-Host "Saved Traefik Public IP: $ip"
 
-        - task: PublishPipelineArtifact@1
-          displayName: 'Publish IP Artifact'
-          inputs:
-            targetPath: '$(Build.ArtifactStagingDirectory)'
-            artifact: 'traefik-ip'
-            publishLocation: 'pipeline'
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish IP Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: 'traefik-ip'
+        publishLocation: 'pipeline'
