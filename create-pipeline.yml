@@ -78,7 +78,7 @@ stages:
         scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
-            cd terraform-prod
+            cd terraform-cicd
             $ip = terraform output -raw traefik_public_ip
             $ip | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/traefik-public-ip.txt" -Encoding utf8
             Write-Host "Saved Traefik Public IP: $ip"
