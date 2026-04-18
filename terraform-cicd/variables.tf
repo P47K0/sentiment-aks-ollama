@@ -3,7 +3,7 @@ variable "resource_group_name" {
 }
 
 variable "storage_account_name" {
-  default = "tfstateaz400"
+  default = "tfstateaz400b"
 }
 
 variable "cluster_name" {
