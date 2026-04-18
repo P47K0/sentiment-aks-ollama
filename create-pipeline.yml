@@ -68,7 +68,7 @@ stages:
         scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          $spObjectId = az ad signed-in-user show --query id -o tsv
+          $spObjectId = az account show --query user.name -o tsv
           cd terraform-cicd
           terraform apply -auto-approve -var="resource_group_name=$(ResourceGroupName)" -var="location=$(location)" -var="user_nodepool_enabled=true" -var="storage_account_name=$(StorageAccountName) -var="service_principal_object_id=$spObjectId""
 
