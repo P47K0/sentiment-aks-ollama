@@ -36,14 +36,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-resource "azurerm_public_ip" "traefik" {
-  name                = "${var.cluster_name}-traefik-pip"
-  location            = var.location
-  resource_group_name = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
 resource "azurerm_kubernetes_cluster_node_pool" "userpool" {
   name                  = "userpool"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
@@ -58,4 +50,20 @@ resource "azurerm_kubernetes_cluster_node_pool" "userpool" {
   tags = {
     environment = "dev"
   }
+}
+
+resource "azurerm_role_assignment" "sp_network_access" {
+  scope              = azurerm_kubernetes_cluster.aks.node_resource_group_id
+  role_definition_name = "Network Contributor"
+  principal_id       = var.service_principal_object_id
+}
+
+resource "azurerm_public_ip" "traefik" {
+  name                = "${var.cluster_name}-traefik-pip"
+  location            = var.location
+  resource_group_name = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  # Ensure role assignment is created before attempting to create the public IP
+  depends_on = [azurerm_role_assignment.sp_network_access]
 }
