@@ -60,18 +60,38 @@ stages:
               path: '$(Pipeline.Workspace)/traefik-ip'
 
           - task: PowerShell@2
-            displayName: 'Read Traefik Public IP'
+            displayName: 'Read Cluster Data'
             inputs:
               targetType: 'inline'
               script: |
-                $ipFile = "$(Pipeline.Workspace)/traefik-ip/traefik-public-ip.txt"
+                $aksRgFile = "$(Pipeline.Workspace)/cluster-data/aks-pip-resource-group-name.txt"
+                if (Test-Path $aksRgFile) {
+                  $aksRg = Get-Content $aksRgFile -Raw
+                  $aksRg = $aksRg.Trim()
+                  Write-Host "Loaded AKS PIP Resource Group Name: $aksRg"
+                  Write-Host "##vso[task.setvariable variable=aksPipResourceGroupName]$aksRg"
+                } else {
+                  Write-Host "##vso[task.logissue type=error]AKS PIP Resource Group Name file not found!"
+                  exit 1
+                }
+                $pipNameFile = "$(Pipeline.Workspace)/cluster-data/aks-pip-name.txt"
+                if (Test-Path $pipNameFile) {
+                  $pipName = Get-Content $pipNameFile -Raw
+                  $pipName = $pipName.Trim()
+                  Write-Host "Loaded AKS PIP Name: $pipName"
+                  Write-Host "##vso[task.setvariable variable=aksPipName]$pipName"
+                } else {
+                  Write-Host "##vso[task.logissue type=error]AKS PIP Name file not found!"
+                  exit 1
+                }
+                $ipFile = "$(Pipeline.Workspace)/cluster-data/aks-public-ip.txt"
                 if (Test-Path $ipFile) {
                   $ip = Get-Content $ipFile -Raw
                   $ip = $ip.Trim()
-                  Write-Host "Loaded Traefik Public IP: $ip"
-                  Write-Host "##vso[task.setvariable variable=traefikPublicIp]$ip"
+                  Write-Host "Loaded AKS Public IP: $ip"
+                  Write-Host "##vso[task.setvariable variable=aksPublicIp]$ip"
                 } else {
-                  Write-Host "##vso[task.logissue type=error]Traefik IP file not found!"
+                  Write-Host "##vso[task.logissue type=error]AKS Public IP file not found!"
                   exit 1
                 }
 
@@ -86,13 +106,29 @@ stages:
             displayName: 'Add Traefik Helm Repo'
 
           - script: |
-              echo "Replacing placeholder with IP: $(traefikPublicIp)"
+              echo "Replacing placeholder with resource group name: $(aksPipResourceGroupName)"
               
-              sed -i "s/__TRAEFIK_PUBLIC_IP__/$(traefikPublicIp)/g" k8s/traefik-values.yml
+              sed -i "s/__AKS_RESOURCE_GROUP_NAME__/$(aksPipResourceGroupName)/g" k8s/traefik-values.yml
               
               echo "Updated traefik-values.yml:"
               cat k8s/traefik-values.yml
-            displayName: '🔄 Replace Traefik Public IP'
+            displayName: 'Traefik replace Resource Group Name'
+          - script: |
+              echo "Replacing placeholder with pip name: $(aksPipName)"
+              
+              sed -i "s/__AKS_PIP_NAME__/$(aksPipName)/g" k8s/traefik-values.yml
+              
+              echo "Updated traefik-values.yml:"
+              cat k8s/traefik-values.yml
+            displayName: 'Traefik replace AKS PIP Name'
+          - script: |
+              echo "Replacing placeholder with IP: $(aksPublicIp)"
+              
+              sed -i "s/__AKS_PUBLIC_IP__/$(aksPublicIp)/g" k8s/traefik-values.yml
+              
+              echo "Updated traefik-values.yml:"
+              cat k8s/traefik-values.yml
+            displayName: 'Traefik replace Public IP'
 
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
@@ -104,14 +140,8 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              arguments: >-
-                --install 
-                --create-namespace 
-                --atomic 
-                --timeout 10m 
-                --set service.type=LoadBalancer 
-                --set service.spec.loadBalancerIP=104.211.78.53 
-                --set service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-resource-group"="az400-practice"
+              valueFile: 'k8s/traefik-values.yml'
+              arguments: '--install --create-namespace --atomic --timeout 5m'
 
           - task: Kubernetes@1
             displayName: 'Create $(namespace) Namespace'

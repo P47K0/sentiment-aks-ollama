@@ -2,8 +2,9 @@ service:
   enabled: true
   type: LoadBalancer
   spec:
-    loadBalancerIP: "__TRAEFIK_PUBLIC_IP__"          # ← will be replaced
+    loadBalancerIP: "__AKS_PUBLIC_IP__"
     externalTrafficPolicy: Local
 
   annotations:
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: "az400-practice"
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: "__AKS_RESOURCE_GROUP_NAME__"
+    service.beta.kubernetes.io/azure-load-balancer-pip-name: "__AKS_PIP_NAME__"

@@ -79,13 +79,22 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
             cd terraform-cicd
-            $ip = terraform output -raw traefik_public_ip
-            $ip | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/traefik-public-ip.txt" -Encoding utf8
-            Write-Host "Saved Traefik Public IP: $ip"
+            $clusterName = terraform output -raw aks_cluster_name
+            $clusterName | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-cluster-name.txt" -Encoding utf8
+            Write-Host "AKS cluster name: $clusterName"            
+            $ip = terraform output -raw aks_public_ip
+            $ip | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-public-ip.txt" -Encoding utf8
+            Write-Host "Saved AKS Public IP: $ip"
+            $pipName = terraform output -raw aks_pip_name
+            $pipName | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-pip-name.txt" -Encoding utf8
+            Write-Host "Saved AKS PIP Name: $pipName"
+            $pipResourceGroupName = terraform output -raw aks_pip_resource_group_name
+            $pipResourceGroupName | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-pip-resource-group-name.txt" -Encoding utf8
+            Write-Host "Saved AKS PIP Resource Group Name: $pipResourceGroupName"
 
     - task: PublishPipelineArtifact@1
       displayName: 'Publish IP Artifact'
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: 'traefik-ip'
+        artifact: 'cluster-data'
         publishLocation: 'pipeline'
