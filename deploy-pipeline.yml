@@ -85,6 +85,15 @@ stages:
               echo "Traefik repo added and updated"
             displayName: 'Add Traefik Helm Repo'
 
+          - script: |
+              echo "Replacing placeholder with IP: $(traefikPublicIp)"
+              
+              sed -i "s/__TRAEFIK_PUBLIC_IP__/$(traefikPublicIp)/g" k8s/traefik-values.yml
+              
+              echo "Updated traefik-values.yml:"
+              cat k8s/traefik-values.yml
+            displayName: '🔄 Replace Traefik Public IP'
+
           - task: HelmDeploy@0
             displayName: 'Deploy Traefik'
             inputs:

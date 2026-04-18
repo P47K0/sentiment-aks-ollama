@@ -2,7 +2,7 @@ service:
   enabled: true
   type: LoadBalancer
   spec:
-    loadBalancerIP: "$(traefikPublicIp)"          # ← will be replaced
+    loadBalancerIP: "__TRAEFIK_PUBLIC_IP__"          # ← will be replaced
     externalTrafficPolicy: Local
 
   annotations:
