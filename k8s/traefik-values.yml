@@ -1,0 +1,9 @@
+service:
+  enabled: true
+  type: LoadBalancer
+  spec:
+    loadBalancerIP: "$(traefikPublicIp)"          # ← will be replaced
+    externalTrafficPolicy: Local
+
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: "az400-practice"

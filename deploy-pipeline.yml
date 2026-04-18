@@ -95,7 +95,8 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              arguments: '--install --atomic --create-namespace --set service.spec.loadBalancerIP=$(traefikPublicIp) --set service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-resource-group"="az400-practice"'
+              valueFile: 'k8s/traefik-values.yml'
+              arguments: '--install --create-namespace --atomic --timeout 5m'
 
           - task: Kubernetes@1
             displayName: 'Create $(namespace) Namespace'
