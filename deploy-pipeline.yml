@@ -142,15 +142,15 @@ stages:
               releaseName: 'traefik'
               arguments: '--install --atomic --create-namespace'
 
-          - task: Kubernetes@1
+          - task: KubectlDeploy@0
             displayName: 'Create $(namespace) Namespace'
             inputs:
-              connectionType: 'Kubernetes Service Connection'
-              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: '$(namespace)'
               command: 'apply'
               arguments: '-f -'
-              useConfigurationFile: true
-              configuration: |
+              useConfigurationFile: false
+              inlineStrategy: |
                 apiVersion: v1
                 kind: Namespace
                 metadata:
