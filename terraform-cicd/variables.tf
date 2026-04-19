@@ -18,6 +18,6 @@ variable "user_nodepool_enabled" {
   default = true
 }
 
-variable "service_principal_object_id" {
-  type = string
-}
+#variable "service_principal_object_id" {
+#  type = string
+#}
