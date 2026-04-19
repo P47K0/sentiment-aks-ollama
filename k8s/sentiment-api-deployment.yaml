@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: sentiment-api
-        image: p47r1ck75/sentiment-api:1.0.1
+        image: p47r1ck75/sentiment-api
         ports:
         - containerPort: 5000
         resources:
