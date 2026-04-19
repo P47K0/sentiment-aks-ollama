@@ -140,8 +140,7 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              valueFile: 'k8s/traefik-values.yml'
-              arguments: '--install --create-namespace --atomic --timeout 5m'
+              arguments: '--install --atomic --create-namespace'
 
           - task: Kubernetes@1
             displayName: 'Create $(namespace) Namespace'
