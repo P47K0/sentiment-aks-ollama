@@ -145,7 +145,8 @@ stages:
           - task: Kubernetes@1
             displayName: 'Create $(namespace) Namespace'
             inputs:
-              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'create'
               arguments: 'namespace $(namespace)'
 
@@ -160,7 +161,8 @@ stages:
           - task: Kubernetes@1
             displayName: 'Wait for Ollama Pod'
             inputs:
-              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'wait'
               arguments: '--for=condition=ready pod -l app=ollama -n dev --timeout=300s'
               namespace: '$(namespace)'
@@ -168,7 +170,8 @@ stages:
           - task: Kubernetes@1
             displayName: 'Pull Ollama Model'
             inputs:
-              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'exec'
               arguments: 'deploy/ollama -- ollama pull phi3:mini'
               namespace: '$(namespace)'
