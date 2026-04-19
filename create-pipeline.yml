@@ -88,7 +88,7 @@ stages:
             $pipName = terraform output -raw aks_pip_name
             $pipName | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-pip-name.txt" -Encoding utf8
             Write-Host "Saved AKS PIP Name: $pipName"
-            $pipResourceGroupName = terraform output -raw aks_pip_resource_group_name
+            $pipResourceGroupName = terraform output -raw aks_pip_rg_name
             $pipResourceGroupName | Out-File -FilePath "$(Build.ArtifactStagingDirectory)/aks-pip-resource-group-name.txt" -Encoding utf8
             Write-Host "Saved AKS PIP Resource Group Name: $pipResourceGroupName"
 
