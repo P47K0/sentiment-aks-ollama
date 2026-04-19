@@ -147,8 +147,14 @@ stages:
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
-              command: 'create'
-              arguments: 'namespace $(namespace)'
+              command: 'apply'
+              arguments: '-f -'
+              useConfigurationFile: true
+              configuration: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: $(namespace)
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
