@@ -58,12 +58,13 @@ resource "azurerm_kubernetes_cluster_node_pool" "userpool" {
 #  principal_id       = var.service_principal_object_id
 #}
 
-#resource "azurerm_public_ip" "traefik" {
-#  name                = "${var.cluster_name}-traefik-pip"
-#  location            = var.location
-#  resource_group_name = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
-#  allocation_method   = "Static"
-#  sku                 = "Standard"
+resource "azurerm_public_ip" "traefik" {
+  name                = "${var.cluster_name}-traefik-pip"
+  location            = var.location
+  # #resource_group_name = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
+  resource_group_name = "${var.resource_group_name}"
+  allocation_method   = "Static"
+  sku                 = "Standard"
   # Ensure role assignment is created before attempting to create the public IP
-#  depends_on = [azurerm_role_assignment.sp_network_access]
-#}
+  # #depends_on = [azurerm_role_assignment.sp_network_access]
+}
