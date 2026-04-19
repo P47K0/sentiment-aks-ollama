@@ -51,13 +51,13 @@ stages:
         deploy:
           steps:
           - task: DownloadPipelineArtifact@2
-            displayName: 'Download Traefik IP Artifact'
+            displayName: 'Download Cluster Artifact'
             inputs:
               buildType: 'specific'
               project: '$(System.TeamProject)'
               pipeline: 'P47K0.sentiment-aks-ollama - Create'
-              artifact: 'traefik-ip'
-              path: '$(Pipeline.Workspace)/traefik-ip'
+              artifact: 'cluster-data'
+              path: '$(Pipeline.Workspace)/cluster-data'
 
           - task: PowerShell@2
             displayName: 'Read Cluster Data'
