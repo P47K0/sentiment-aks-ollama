@@ -142,19 +142,22 @@ stages:
               releaseName: 'traefik'
               arguments: '--install --atomic --create-namespace'
 
-          - task: KubectlDeploy@0
+          - script: |
+              echo "Replacing namespace placeholder: $(namespace)"
+              
+              sed -i "s/__NAMESPACE__/$(namespace)/g" k8s/namespace.yml
+              
+              echo "Updated namespace.yml:"
+              cat k8s/namespace.yml
+            displayName: 'Replace Namespace'
+
+          - task: Kubernetes@1
             displayName: 'Create $(namespace) Namespace'
             inputs:
-              kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              namespace: '$(namespace)'
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'apply'
-              arguments: '-f -'
-              useConfigurationFile: false
-              inlineStrategy: |
-                apiVersion: v1
-                kind: Namespace
-                metadata:
-                  name: $(namespace)
+              arguments: '-f k8s/namespace.yml'
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'
