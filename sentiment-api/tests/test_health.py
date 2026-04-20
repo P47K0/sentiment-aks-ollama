@@ -1,3 +1,5 @@
+import pytest
+
 from flask import Flask, jsonify
 
 @pytest.mark.parametrize("endpoint", ["/health"])
