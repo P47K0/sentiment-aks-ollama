@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+import requests
 
 def test_sentiment_success(client):
     text = "This is a positive sentence."
