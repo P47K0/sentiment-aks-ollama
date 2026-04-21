@@ -15,21 +15,25 @@ app = Flask(__name__)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama-service:11434/api/generate")
 MODEL = os.environ.get("MODEL", "phi3:mini")
-PROMPT_TEMPLATE = os.environ.get("PROMPT_TEMPLATE", "")
+
+def get_prompt_template():
+    return os.environ.get("PROMPT_TEMPLATE", "")
 
 @app.route('/sentiment', methods=['POST'])
 def analyze_sentiment():
     data = request.get_json()
     text = data.get("text", "").strip()
     
+    prompt_template = get_prompt_template()
+
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    if not PROMPT_TEMPLATE:
+    if not prompt_template:
         logger.error("PROMPT_TEMPLATE not found in environment")
         return jsonify({"error": "Prompt configuration missing"}), 500
 
-    prompt = PROMPT_TEMPLATE.format(text=text)
+    prompt = prompt_template.format(text=text)
 
     payload = {
         "model": MODEL,
