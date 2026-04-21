@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from werkzeug.exceptions import BadRequest
 import requests
 import os
 
@@ -7,10 +8,21 @@ app = Flask(__name__)
 # Point to the new LLM Adapter service instead of Azure
 ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000/sentiment")
 
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "Method Not Allowed"}), 405
+
 @app.route('/sentiment', methods=['POST'])
 def sentiment():
-    data = request.get_json()
-    text = data.get("text", "")
+    try:
+        data = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Malformed JSON"}), 400
+    
+    try:
+        text = data.get("text", "")
+    except AttributeError:
+        return jsonify({"error": "No text provided"}), 400
     
     if not text:
         return jsonify({"error": "No text provided"}), 400
@@ -18,7 +30,12 @@ def sentiment():
     try:
         response = requests.post(ADAPTER_URL, json={"text": text}, timeout=30)
         response.raise_for_status()
-        return jsonify(response.json())
+        result = response.json()
+
+        if not isinstance(result, dict) or "sentiment" not in result:
+            return jsonify({"error": "Unexpected upstream response format"}), 500
+
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({"error": "Failed to get sentiment", "details": str(e)}), 500

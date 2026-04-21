@@ -61,3 +61,4 @@ ollama/
 # Misc
 *.tmp
 *.bak
+.aider*
