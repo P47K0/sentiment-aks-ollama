@@ -1,5 +1,6 @@
 import pytest
 from app import analyze_sentiment
+import requests
 
 def test_analyze_sentiment_no_text(client):
     response = client.post('/sentiment', json={})
