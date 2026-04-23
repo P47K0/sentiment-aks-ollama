@@ -1,5 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock
+import requests
+import os
 
 from app import app
 
