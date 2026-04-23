@@ -8,6 +8,8 @@ app = Flask(__name__)
 # Point to the new LLM Adapter service instead of Azure
 ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000/sentiment")
 
+LANGUAGE_DETECTION_ENABLED = os.getenv("LANGUAGE_DETECTION_ENABLED", "false").lower() == "true"
+
 @app.errorhandler(405)
 def method_not_allowed(e):
     return jsonify({"error": "Method Not Allowed"}), 405
@@ -57,6 +59,39 @@ def ready():
             return jsonify({"status": "not ready"}), 503
     except:
         return jsonify({"status": "not ready"}), 503
+
+@app.route('/detect-language', methods=['POST'])
+def detect_language():
+    if not LANGUAGE_DETECTION_ENABLED:
+        return jsonify({"error": "Language detection is disabled"}), 403
+
+    try:
+        data = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Malformed JSON"}), 400
+    
+    try:
+        text = data.get("text", "")
+    except AttributeError:
+        return jsonify({"error": "No text provided"}), 400
+    
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        response = requests.post(f"{ADAPTER_URL}/detect-language", json={"text": text}, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+
+        if not isinstance(result, dict) or "language" not in result:
+            return jsonify({"error": "Unexpected upstream response format"}), 500
+
+        return jsonify(result)
+        
+    except requests.Timeout:
+        return jsonify({"error": "Ollama timeout"}), 504
+    except requests.RequestException as e:
+        return jsonify({"error": "Failed to detect language", "details": str(e)}), 500
 
 
 if __name__ == '__main__':
