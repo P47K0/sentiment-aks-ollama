@@ -58,55 +58,38 @@ stages:
       inputs:
         summaryFileLocation: '$(System.DefaultWorkingDirectory)/llm-adapter/coverage.xml'
 
-- stage: Build
-  displayName: '2. Build & Push Docker Images'
+- stage: BuildMultiArch
   jobs:
-  - job: DetectChanges
-    steps:
-    - pwsh: |
-        $changes = git diff --name-only $(Build.SourceVersion) HEAD
-        $llmChanged = ($changes -match "llm-adapter/").Count -gt 0
-        $apiChanged = ($changes -match "sentiment-api/").Count -gt 0
-        Write-Host "DETECTED LLM: $llmChanged API: $apiChanged"
-        echo "##vso[task.setvariable variable=llmAdapterChanged;isOutput=true]$llmChanged"
-        echo "##vso[task.setvariable variable=sentimentApiChanged;isOutput=true]$apiChanged"
-      displayName: 'Detect changes'
-
   - job: DockerPrep
-    dependsOn: DetectChanges
     steps:
     - script: docker buildx version
-      displayName: 'Check docker buildx'
+      displayName: 'Check buildx'
     - script: docker buildx create --use --name builder
-      displayName: 'Create Buildx Builder'
+      displayName: 'Create builder'
 
   - job: BuildLLM
     dependsOn: DockerPrep
-    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['llmAdapterChanged'], 'True'))
-    variables:
-      imageTag: $(Build.BuildId)
+    pathFilters: 
+    - 'llm-adapter/**'
     steps:
     - script: |
         docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/llm-adapter:$(imageTag) \
+          -t $(dockerHubUsername)/llm-adapter:$(Build.BuildId) \
           -t $(dockerHubUsername)/llm-adapter:latest \
-          -f llm-adapter/Dockerfile \
-          --push .
-      displayName: 'Build & Push llm-adapter (multi-arch)'
+          -f llm-adapter/Dockerfile --push .
+      displayName: 'LLM Multi-Arch'
 
   - job: BuildAPI
     dependsOn: DockerPrep
-    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['sentimentApiChanged'], 'True'))
-    variables:
-      imageTag: $(Build.BuildId)
+    pathFilters: 
+    - 'sentiment-api/**'
     steps:
     - script: |
         docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/sentiment-api:$(imageTag) \
+          -t $(dockerHubUsername)/sentiment-api:$(Build.BuildId) \
           -t $(dockerHubUsername)/sentiment-api:latest \
-          -f sentiment-api/Dockerfile \
-          --push .
-      displayName: 'Build & Push sentiment-api (multi-arch)'
+          -f sentiment-api/Dockerfile --push .
+      displayName: 'API Multi-Arch'
 
 
 - stage: Deploy
