@@ -23,7 +23,7 @@ stages:
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        python -m pip install pytest
+        python -m pip install -r requirements-dev.txt
         python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
       workingDirectory: sentiment-api
       displayName: Run sentiment-api tests
@@ -42,7 +42,7 @@ stages:
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        python -m pip install pytest
+        python -m pip install -r requirements-dev.txt
         python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
       workingDirectory: llm-adapter
       displayName: Run llm-adapter tests
