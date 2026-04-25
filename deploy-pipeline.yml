@@ -84,9 +84,10 @@ stages:
     dependsOn: DetectChanges
     steps:
     - script: docker buildx version
-      displayName: 'Check docker buildx'
-    - script: docker buildx create --use --name builder
-      displayName: 'Create Buildx Builder'
+      displayName: 'Check buildx'
+    - script: |
+        docker buildx rm builder || true
+        docker buildx create --name builder --driver docker-container --use --
 
   - job: BuildLLM
     dependsOn: DockerPrep
@@ -95,11 +96,11 @@ stages:
       imageTag: $(Build.BuildId)
     steps:
     - script: |
+        docker buildx inspect --bootstrap  # Warm up container driver
         docker buildx build --platform linux/amd64,linux/arm64 \
           -t $(dockerHubUsername)/llm-adapter:$(imageTag) \
           -t $(dockerHubUsername)/llm-adapter:latest \
-          -f llm-adapter/Dockerfile \
-          --push .
+          -f llm-adapter/Dockerfile --push .
       displayName: 'Build & Push llm-adapter (multi-arch)'
 
   - job: BuildAPI
@@ -109,6 +110,7 @@ stages:
       imageTag: $(Build.BuildId)
     steps:
     - script: |
+        docker buildx inspect --bootstrap  # Warm up container driver
         docker buildx build --platform linux/amd64,linux/arm64 \
           -t $(dockerHubUsername)/sentiment-api:$(imageTag) \
           -t $(dockerHubUsername)/sentiment-api:latest \
