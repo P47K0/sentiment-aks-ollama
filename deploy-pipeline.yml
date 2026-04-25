@@ -80,42 +80,27 @@ stages:
       name: detect
       displayName: 'Detect changes'
 
-  - job: DockerPrep
-    dependsOn: DetectChanges
-    steps:
-    - script: docker buildx version
-      displayName: 'Setup docker driver'
     - script: |
-        docker buildx rm builder || true
-        docker buildx create --name builder --driver docker --use --
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+      displayName: '🔑 Docker Login to Docker Hub'
 
-  - job: BuildLLM
-    dependsOn: DockerPrep
-    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
-    variables:
-      imageTag: $(Build.BuildId)
-    steps:
-    - script: |
-        docker buildx build --platform linux/amd64 \
-          -t $(dockerHubUsername)/llm-adapter:$(imageTag) \
-          -t $(dockerHubUsername)/llm-adapter:latest \
-          -f llm-adapter/Dockerfile --push .
+    - task: Docker@2
       displayName: 'Build & Push llm-adapter'
+      condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/llm-adapter'
+        dockerfile: 'llm-adapter/Dockerfile'
+        tags: '$(imageTag),latest'
 
-  - job: BuildAPI
-    dependsOn: DockerPrep
-    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.sentimentApiChanged'], 'True'))
-    variables:
-      imageTag: $(Build.BuildId)
-    steps:
-    - script: |        
-        docker buildx build --platform linux/amd64 \
-          -t $(dockerHubUsername)/sentiment-api:$(imageTag) \
-          -t $(dockerHubUsername)/sentiment-api:latest \
-          -f sentiment-api/Dockerfile \
-          --push .
+    - task: Docker@2
       displayName: 'Build & Push sentiment-api'
-
+      condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.sentimentApiChanged'], 'True'))
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/sentiment-api'
+        dockerfile: 'sentiment-api/Dockerfile'
+        tags: '$(imageTag),latest'
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
