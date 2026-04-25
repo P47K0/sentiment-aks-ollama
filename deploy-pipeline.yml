@@ -80,41 +80,128 @@ stages:
       name: detect
       displayName: 'Detect changes'
 
-  - job: BuildLLM
+  - job: ResolveFallbackTags
+    displayName: Resolve DockerHub fallback tags
     dependsOn: DetectChanges
+    steps:
+    - bash: |
+        set -euo pipefail
+        
+        # Get newest non-latest tag for each service
+        SENTIMENT_API_FALLBACK=$(curl -s "https://registry.hub.docker.com/v2/repositories/${DOCKERHUB_USER}/sentiment-api/tags/?page_size=50" \
+          | jq -r '.results[] | select(.name != "latest") | .name' \
+          | sort -V | tail -1)
+
+        LLM_ADAPTER_FALLBACK=$(curl -s "https://registry.hub.docker.com/v2/repositories/${DOCKERHUB_USER}/llm-adapter/tags/?page_size=50" \
+          | jq -r '.results[] | select(.name != "latest") | .name' \
+          | sort -V | tail -1)
+
+        echo "Sentiment API fallback: $SENTIMENT_API_FALLBACK"
+        echo "LLM Adapter fallback: $LLM_ADAPTER_FALLBACK"
+
+        echo "##vso[task.setvariable variable=sentimentApiFallbackTag;isOutput=true]$SENTIMENT_API_FALLBACK"
+        echo "##vso[task.setvariable variable=llmAdapterFallbackTag;isOutput=true]$LLM_ADAPTER_FALLBACK"
+      name: setFallbackTags
+      displayName: Get newest DockerHub tags
+      env:
+        DOCKERHUB_USER: $(dockerHubUsername)
+
+  - job: BuildLlmAdapter
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
     condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
     variables:
       imageTag: $(Build.BuildId)
     steps:
+    - checkout: self
     - script: |
         echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
       displayName: '🔑 Docker Login to Docker Hub'
-
+    - bash: |
+        set -euo pipefail
+        LLM_ADAPTER_TAG="$(Build.BuildId)"
+        echo "Using llm-adapter tag: $LLM_ADAPTER_TAG"
+        echo "##vso[task.setvariable variable=llmAdapterImageTag;isOutput=true]$LLM_ADAPTER_TAG"
+      name: setLlmAdapterTag
+      displayName: Set llm-adapter image tag
     - task: Docker@2
       displayName: 'Build & Push llm-adapter'
       inputs:
         command: buildAndPush
         repository: '$(dockerHubUsername)/llm-adapter'
         dockerfile: 'llm-adapter/Dockerfile'
-        tags: '$(imageTag),latest'
+        tags: |
+          $(imageTag)
+          latest
 
-  - job: BuildAPI
-    dependsOn: DetectChanges
+  - job: BuildApi
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
     condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.sentimentApiChanged'], 'True'))
     variables:
       imageTag: $(Build.BuildId)
     steps:
+    - checkout: self
     - script: |
         echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
       displayName: '🔑 Docker Login to Docker Hub'
-      
+    - bash: |
+        set -euo pipefail
+        SENTIMENT_API_TAG="$(Build.BuildId)"
+        echo "Using sentiment-api tag: $SENTIMENT_API_TAG"
+        echo "##vso[task.setvariable variable=sentimentApiImageTag;isOutput=true]$SENTIMENT_API_TAG"
+      name: setSentimentApiTag
+      displayName: Set sentiment-api image tag  
     - task: Docker@2
       displayName: 'Build & Push sentiment-api'
       inputs:
         command: buildAndPush
         repository: '$(dockerHubUsername)/sentiment-api'
         dockerfile: 'sentiment-api/Dockerfile'
-        tags: '$(imageTag),latest'
+        tags: |
+          $(imageTag)
+          latest
+  - job: ResolveFinalTags
+    displayName: Resolve final image tags
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
+    - BuildApi
+    - BuildLlmAdapter
+    condition: always()
+    variables:
+      sentimentApiChanged: $[ dependencies.DetectChanges.outputs['detect.sentimentApiChanged'] ]
+      llmAdapterChanged: $[ dependencies.DetectChanges.outputs['detect.llmAdapterChanged'] ]
+      sentimentApiFallbackTag: $[ dependencies.ResolveFallbackTags.outputs['setFallbackTags.sentimentApiFallbackTag'] ]
+      llmAdapterFallbackTag: $[ dependencies.ResolveFallbackTags.outputs['setFallbackTags.llmAdapterFallbackTag'] ]
+      builtSentimentApiTag: $[ dependencies.BuildApi.outputs['setSentimentApiTag.sentimentApiImageTag'] ]
+      builtLlmAdapterTag: $[ dependencies.BuildLlmAdapter.outputs['setLlmAdapterTag.llmAdapterImageTag'] ]
+    steps:
+    - bash: |
+        set -euo pipefail
+
+        if [ "$(sentimentApiChanged)" = "True" ] && [ -n "$(builtSentimentApiTag)" ]; then
+          FINAL_SENTIMENT_API_TAG="$(builtSentimentApiTag)"
+        else
+          FINAL_SENTIMENT_API_TAG="$(sentimentApiFallbackTag)"
+        fi
+
+        if [ "$(llmAdapterChanged)" = "True" ] && [ -n "$(builtLlmAdapterTag)" ]; then
+          FINAL_LLM_ADAPTER_TAG="$(builtLlmAdapterTag)"
+        else
+          FINAL_LLM_ADAPTER_TAG="$(llmAdapterFallbackTag)"
+        fi
+
+        echo "Final sentiment-api tag: $FINAL_SENTIMENT_API_TAG"
+        echo "Final llm-adapter tag: $FINAL_LLM_ADAPTER_TAG"
+
+        echo "##vso[task.setvariable variable=finalSentimentApiTag;isOutput=true]$FINAL_SENTIMENT_API_TAG"
+        echo "##vso[task.setvariable variable=finalLlmAdapterTag;isOutput=true]$FINAL_LLM_ADAPTER_TAG"
+      name: setFinalTags
+      displayName: Publish final tags
+
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
@@ -246,8 +333,8 @@ stages:
               namespace: '$(namespace)'
               manifests: 'k8s/*.yaml'
               containers: |
-                $(dockerHubUsername)/llm-adapter:$(imageTag)
-                $(dockerHubUsername)/sentiment-api:$(imageTag)
+                $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
+                $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
 
           - task: Kubernetes@1
             displayName: 'Wait for Ollama Pod'
