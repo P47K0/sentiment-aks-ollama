@@ -121,6 +121,8 @@ stages:
   dependsOn: Build
   jobs:
   - deployment: Deploy
+    variables:
+      imageTag: $(Build.BuildId)
     displayName: 'Deploy'
     environment: '$(environment)'
     strategy:
