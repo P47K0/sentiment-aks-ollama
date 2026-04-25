@@ -12,6 +12,8 @@ spec:
       labels:
         app: sentiment-api
     spec:
+      nodeSelector:
+        agentpool: userpool    
       containers:
       - name: sentiment-api
         image: p47r1ck75/sentiment-api

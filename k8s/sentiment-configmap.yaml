@@ -3,9 +3,10 @@ kind: ConfigMap
 metadata:
   name: sentiment-config
 data:
+  LANGUAGE_DETECTION_ENABLED: 'true'
   OLLAMA_URL: "http://ollama-service:11434"
   MODEL: "phi3:mini"
-  ADAPTER_URL: "http://llm-adapter:5000/sentiment"
+  ADAPTER_URL: "http://llm-adapter:5000"
   PROMPT_TEMPLATE: |
     You are a sentiment analysis model.
     Analyze the sentiment of the text below and respond with **ONLY** valid JSON.

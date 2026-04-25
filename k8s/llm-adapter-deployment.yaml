@@ -12,6 +12,8 @@ spec:
       labels:
         app: llm-adapter
     spec:
+      nodeSelector:
+        agentpool: userpool    
       containers:
       - name: llm-adapter
         image: p47r1ck75/llm-adapter

@@ -108,9 +108,6 @@ def ready():
         return jsonify({"status": "not ready", "reason": f"connection error: {str(e)}"}), 503
     except Exception as e:
         return jsonify({"status": "not ready", "reason": f"unknown error: {str(e)}"}), 503
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
 
 @app.route('/detect-language', methods=['POST'])
 def detect_language():
@@ -162,3 +159,6 @@ def detect_language():
         return jsonify({"error": "Failed to parse Ollama response", "details": str(e)}), 500
     except Exception as e:
         return jsonify({"error": "Internal error in adapter", "details": str(e)}), 500
+    
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
