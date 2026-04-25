@@ -87,7 +87,7 @@ stages:
       imageTag: $(Build.BuildId)
     steps:
     - script: |
-      echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
       displayName: '🔑 Docker Login to Docker Hub'
 
     - task: Docker@2
@@ -105,7 +105,7 @@ stages:
         imageTag: $(Build.BuildId)
       steps:
       - script: |
-        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+          echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
         displayName: '🔑 Docker Login to Docker Hub'
         
       - task: Docker@2
