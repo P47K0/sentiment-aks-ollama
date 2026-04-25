@@ -67,7 +67,7 @@ stages:
       fetchDepth: 2  # Gets HEAD + HEAD~1
     - pwsh: |
         $changes = git diff HEAD~1 HEAD --name-only
-        Write-Host "🔍 Feature branch changes: $changes"
+        Write-Host "Feature branch changes: $changes"
         
         $llmChanged = ($changes -match "llm-adapter/").Count -gt 0
         $apiChanged = ($changes -match "sentiment-api/").Count -gt 0
@@ -80,27 +80,41 @@ stages:
       name: detect
       displayName: 'Detect changes'
 
+  - job: BuildLLM
+    dependsOn: DetectChanges
+    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
+    variables:
+      imageTag: $(Build.BuildId)
+    steps:
     - script: |
-        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+      echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
       displayName: '🔑 Docker Login to Docker Hub'
 
     - task: Docker@2
       displayName: 'Build & Push llm-adapter'
-      condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
       inputs:
         command: buildAndPush
         repository: '$(dockerHubUsername)/llm-adapter'
         dockerfile: 'llm-adapter/Dockerfile'
         tags: '$(imageTag),latest'
 
-    - task: Docker@2
-      displayName: 'Build & Push sentiment-api'
+    - job: BuildAPI
+      dependsOn: DetectChanges
       condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.sentimentApiChanged'], 'True'))
-      inputs:
-        command: buildAndPush
-        repository: '$(dockerHubUsername)/sentiment-api'
-        dockerfile: 'sentiment-api/Dockerfile'
-        tags: '$(imageTag),latest'
+      variables:
+        imageTag: $(Build.BuildId)
+      steps:
+      - script: |
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+        displayName: '🔑 Docker Login to Docker Hub'
+        
+      - task: Docker@2
+        displayName: 'Build & Push sentiment-api'
+        inputs:
+          command: buildAndPush
+          repository: '$(dockerHubUsername)/sentiment-api'
+          dockerfile: 'sentiment-api/Dockerfile'
+          tags: '$(imageTag),latest'
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
