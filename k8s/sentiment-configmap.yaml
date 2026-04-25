@@ -20,7 +20,7 @@ data:
       "neutral": number between 0.0 and 1.0,
       "negative": number between 0.0 and 1.0
     }}
-LANGUAGE_PROMPT_TEMPLATE: |
+  LANGUAGE_PROMPT_TEMPLATE: |
     You are a language detection model.
     Detect the language of the text below and respond with **ONLY** valid JSON.
     No explanations, no extra text, no markdown, no apologies.
