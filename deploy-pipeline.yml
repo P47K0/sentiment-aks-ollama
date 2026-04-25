@@ -58,38 +58,62 @@ stages:
       inputs:
         summaryFileLocation: '$(System.DefaultWorkingDirectory)/llm-adapter/coverage.xml'
 
-- stage: BuildMultiArch
+- stage: Build
+  displayName: '2. Build & Push Docker Images'
   jobs:
+  - job: DetectChanges
+    steps:
+    - checkout: self
+      fetchDepth: 2  # Gets HEAD + HEAD~1
+    - pwsh: |
+        $changes = git diff HEAD~1 HEAD --name-only
+        Write-Host "🔍 Feature branch changes: $changes"
+        
+        $llmChanged = ($changes -match "llm-adapter/").Count -gt 0
+        $apiChanged = ($changes -match "sentiment-api/").Count -gt 0
+        
+        Write-Host "LLM changed: $llmChanged | API changed: $apiChanged"
+        
+        # Global variables (same-job access)
+        echo "##vso[task.setvariable variable=llmAdapterChanged]$llmChanged"
+        echo "##vso[task.setvariable variable=sentimentApiChanged]$apiChanged"
+      displayName: 'Detect changes (feature branch)'
+
   - job: DockerPrep
+    dependsOn: DetectChanges
     steps:
     - script: docker buildx version
-      displayName: 'Check buildx'
+      displayName: 'Check docker buildx'
     - script: docker buildx create --use --name builder
-      displayName: 'Create builder'
+      displayName: 'Create Buildx Builder'
 
   - job: BuildLLM
     dependsOn: DockerPrep
-    pathFilters: 
-    - 'llm-adapter/**'
+    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['llmAdapterChanged'], 'True'))
+    variables:
+      imageTag: $(Build.BuildId)
     steps:
     - script: |
         docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/llm-adapter:$(Build.BuildId) \
+          -t $(dockerHubUsername)/llm-adapter:$(imageTag) \
           -t $(dockerHubUsername)/llm-adapter:latest \
-          -f llm-adapter/Dockerfile --push .
-      displayName: 'LLM Multi-Arch'
+          -f llm-adapter/Dockerfile \
+          --push .
+      displayName: 'Build & Push llm-adapter (multi-arch)'
 
   - job: BuildAPI
     dependsOn: DockerPrep
-    pathFilters: 
-    - 'sentiment-api/**'
+    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['sentimentApiChanged'], 'True'))
+    variables:
+      imageTag: $(Build.BuildId)
     steps:
     - script: |
         docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/sentiment-api:$(Build.BuildId) \
+          -t $(dockerHubUsername)/sentiment-api:$(imageTag) \
           -t $(dockerHubUsername)/sentiment-api:latest \
-          -f sentiment-api/Dockerfile --push .
-      displayName: 'API Multi-Arch'
+          -f sentiment-api/Dockerfile \
+          --push .
+      displayName: 'Build & Push sentiment-api (multi-arch)'
 
 
 - stage: Deploy
