@@ -13,6 +13,49 @@ variables:
   model: 'phi3:mini'
 
 stages:
+- stage: Test
+  displayName: '1. Run Tests'
+  jobs:
+  - job: Test
+    displayName: 'Run Tests'
+    steps:
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
+      workingDirectory: sentiment-api
+      displayName: Run sentiment-api tests
+
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: 'sentiment-api/test-results.xml'
+        testRunTitle: 'sentiment-api tests'
+
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/sentiment-api/coverage.xml'
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
+      workingDirectory: llm-adapter
+      displayName: Run llm-adapter tests
+
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: 'llm-adapter/test-results.xml'
+        testRunTitle: 'llm-adapter tests'
+
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/llm-adapter/coverage.xml'
+
 - stage: Build
   displayName: '2. Build & Push Docker Images'
   jobs:
