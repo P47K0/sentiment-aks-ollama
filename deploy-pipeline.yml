@@ -282,6 +282,16 @@ stages:
               #  service.spec.loadBalancerIP=$(aksPublicIp)
               arguments: '--atomic --create-namespace --set providers.kubernetesCRD.allowCrossNamespace=true'
 
+          - task: KubernetesManifest@1
+            displayName: 'Deploy yaml Manifests'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: '$(namespace)'
+              manifests: |                
+                k8s/traefik-middlewares.yaml
+                k8s/traefik-sentiment-routes.yaml
+
 - stage: Deploy
   displayName: '3. Deploy to AKS'
   dependsOn:
@@ -329,8 +339,6 @@ stages:
                 k8s/llm-adapter-deployment.yaml
                 k8s/sentiment-api-deployment.yaml
                 k8s/sentiment-api-ingress.yaml
-                k8s/traefik-middlewares.yaml
-                k8s/traefik-sentiment-routes.yaml
               containers: |
                 $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
                 $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
