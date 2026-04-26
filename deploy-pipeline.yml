@@ -214,6 +214,8 @@ stages:
       runOnce:
         deploy:
           steps:
+          - checkout: self
+            clean: true
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Cluster Artifact'
             inputs:
@@ -287,7 +289,7 @@ stages:
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              namespace: '$(namespace)'
+              namespace: 'ingress'
               manifests: |                
                 k8s/traefik-middlewares.yaml
                 k8s/traefik-sentiment-routes.yaml
