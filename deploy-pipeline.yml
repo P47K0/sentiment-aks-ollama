@@ -299,9 +299,13 @@ stages:
   dependsOn:
     - Build
     - Traefik
+  condition: and(
+    succeeded('Build'),
+    in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
+    )
   variables:
-    finalLlmAdapterTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
-    finalSentimentApiTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
+    finalLlmAdapterTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
+    finalSentimentApiTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
   jobs:
   - deployment: Deploy
     variables:
