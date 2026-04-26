@@ -285,12 +285,12 @@ stages:
               arguments: '--atomic --create-namespace --set providers.kubernetesCRD.allowCrossNamespace=true'
 
           - task: KubernetesManifest@1
-            displayName: 'Deploy Traefik Middleware & Routes'
+            displayName: 'Deploy yaml Manifests'
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: 'ingress'
-              manifests: |
+              manifests: |                
                 k8s/traefik-middlewares.yaml
                 k8s/traefik-sentiment-routes.yaml
 
@@ -299,9 +299,13 @@ stages:
   dependsOn:
     - Build
     - Traefik
+  condition: and(
+    succeeded('Build'),
+    in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
+    )
   variables:
-    finalLlmAdapterTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
-    finalSentimentApiTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
+    finalLlmAdapterTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
+    finalSentimentApiTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
   jobs:
   - deployment: Deploy
     variables:
