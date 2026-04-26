@@ -280,7 +280,7 @@ stages:
               #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-resource-group=$(aksPipResourceGroupName)
               #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-pip-name=$(aksPipName)
               #  service.spec.loadBalancerIP=$(aksPublicIp)
-              arguments: '--atomic --create-namespace --set providers.kubernetescrd.allowCrossNamespace=true'
+              arguments: '--atomic --create-namespace --set providers.kubernetesCRD.allowCrossNamespace=true'
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
