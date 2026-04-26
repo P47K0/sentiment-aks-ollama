@@ -1,0 +1,102 @@
+trigger: none
+pr: none
+
+name: switch-blue-green-$(Date:yyyyMMdd)$(Rev:.r)
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+- name: mode
+  displayName: Switch mode
+  type: string
+  default: toggle
+  values:
+  - toggle
+  - to-blue
+  - to-green
+
+variables:
+  kubernetesServiceConnection: 'AKS-VSPro-Connection'
+  ingressNamespace: 'ingress'
+  ingressRouteName: 'sentiment-routes'
+  routeIndex: '0'
+  serviceIndex: '0'
+  blueNamespace: 'dev-blue'
+  greenNamespace: 'dev-green'
+  serviceName: 'sentiment-api-service'
+
+stages:
+- stage: Switch
+  displayName: Blue/Green Switch
+  jobs:
+  - job: SwitchTraffic
+    displayName: Switch production traffic
+    steps:
+    - task: Kubernetes@1
+      displayName: Login to AKS
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        command: login
+
+    - bash: |
+        set -euo pipefail
+
+        CURRENT=$(kubectl get ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.routes[$(routeIndex)].services[$(serviceIndex)].namespace}")
+
+        if [ -z "$CURRENT" ]; then
+          echo "Could not determine current production namespace."
+          exit 1
+        fi
+
+        case "${{ parameters.mode }}" in
+          toggle)
+            if [ "$CURRENT" = "$(blueNamespace)" ]; then
+              TARGET="$(greenNamespace)"
+            elif [ "$CURRENT" = "$(greenNamespace)" ]; then
+              TARGET="$(blueNamespace)"
+            else
+              echo "Current namespace '$CURRENT' is not expected."
+              exit 1
+            fi
+            ;;
+          to-blue)
+            TARGET="$(blueNamespace)"
+            ;;
+          to-green)
+            TARGET="$(greenNamespace)"
+            ;;
+          *)
+            echo "Unsupported mode: ${{ parameters.mode }}"
+            exit 1
+            ;;
+        esac
+
+        echo "Current production namespace: $CURRENT"
+        echo "Target production namespace: $TARGET"
+
+        kubectl get svc "$(serviceName)" -n "$TARGET" >/dev/null
+
+        if [ "$CURRENT" != "$TARGET" ]; then
+          kubectl patch ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" --type=json \
+            -p="[{\"op\":\"replace\",\"path\":\"/spec/routes/$(routeIndex)/services/$(serviceIndex)/namespace\",\"value\":\"$TARGET\"}]"
+        fi
+
+        UPDATED=$(kubectl get ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.routes[$(routeIndex)].services[$(serviceIndex)].namespace}")
+
+        echo "Updated production namespace: $UPDATED"
+
+        if [ "$UPDATED" != "$TARGET" ]; then
+          echo "Switch verification failed."
+          exit 1
+        fi
+      displayName: Toggle blue/green route
+
+    - task: Kubernetes@1
+      displayName: Logout from AKS
+      condition: always()
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+        command: logout
