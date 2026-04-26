@@ -8,64 +8,208 @@ variables:
   dockerHubUsername: 'p47r1ck75'
   imageTag: '$(Build.BuildId)'
   
-  environment: 'dev'
+  environment: 'dev-blue'
   namespace: '$(environment)'
   model: 'phi3:mini'
 
 stages:
-- stage: Build
-  displayName: '2. Build & Push Docker Images'
+- stage: Test
+  displayName: '1. Run Tests'
   jobs:
-  - job: BuildImages
+  - job: Test
+    displayName: 'Run Tests'
     steps:
 
     - script: |
-        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
-      displayName: '🔑 Docker Login to Docker Hub'
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
+        python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
+      workingDirectory: sentiment-api
+      displayName: Run sentiment-api tests
 
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: 'sentiment-api/test-results.xml'
+        testRunTitle: 'sentiment-api tests'
+
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/sentiment-api/coverage.xml'
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
+        python -m pytest tests --junitxml=test-results.xml --cov=. --cov-report=xml:coverage.xml
+      workingDirectory: llm-adapter
+      displayName: Run llm-adapter tests
+
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: 'llm-adapter/test-results.xml'
+        testRunTitle: 'llm-adapter tests'
+
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/llm-adapter/coverage.xml'
+
+- stage: Build
+  displayName: '2. Build & Push Docker Images'
+  jobs:
+  - job: DetectChanges
+    steps:
+    - checkout: self
+      fetchDepth: 2  # Gets HEAD + HEAD~1
     - pwsh: |
         $changes = git diff HEAD~1 HEAD --name-only
-        $llmChanged = $changes -match "llm-adapter/"
-        $apiChanged = $changes -match "sentiment-api/"
-        echo "##vso[task.setvariable variable=llmAdapterChanged]$llmChanged"
-        echo "##vso[task.setvariable variable=sentimentApiChanged]$apiChanged"
-      displayName: 'Detect file changes'
+        Write-Host "Feature branch changes: $changes"
+        
+        $llmChanged = ($changes -match "llm-adapter/").Count -gt 0
+        $apiChanged = ($changes -match "sentiment-api/").Count -gt 0
+        
+        Write-Host "LLM changed: $llmChanged | API changed: $apiChanged"
+        
+        # Global variables (same-job access)
+        echo "##vso[task.setvariable variable=llmAdapterChanged;isOutput=true]$llmChanged"
+        echo "##vso[task.setvariable variable=sentimentApiChanged;isOutput=true]$apiChanged"
+      name: detect
+      displayName: 'Detect changes'
 
-    - script: docker buildx version
-      displayName: 'Check docker buildx'
+  - job: ResolveFallbackTags
+    displayName: Resolve DockerHub fallback tags
+    dependsOn: DetectChanges
+    steps:
+    - bash: |
+        set -euo pipefail
+        
+        # Get newest non-latest tag for each service
+        SENTIMENT_API_FALLBACK=$(curl -s "https://registry.hub.docker.com/v2/repositories/${DOCKERHUB_USER}/sentiment-api/tags/?page_size=50" \
+          | jq -r '.results[] | select(.name != "latest") | .name' \
+          | sort -V | tail -1)
 
-    - script: docker buildx create --use --name builder
-      displayName: 'Create Buildx Builder'
-      condition: succeeded()
+        LLM_ADAPTER_FALLBACK=$(curl -s "https://registry.hub.docker.com/v2/repositories/${DOCKERHUB_USER}/llm-adapter/tags/?page_size=50" \
+          | jq -r '.results[] | select(.name != "latest") | .name' \
+          | sort -V | tail -1)
 
+        echo "Sentiment API fallback: $SENTIMENT_API_FALLBACK"
+        echo "LLM Adapter fallback: $LLM_ADAPTER_FALLBACK"
+
+        echo "##vso[task.setvariable variable=sentimentApiFallbackTag;isOutput=true]$SENTIMENT_API_FALLBACK"
+        echo "##vso[task.setvariable variable=llmAdapterFallbackTag;isOutput=true]$LLM_ADAPTER_FALLBACK"
+      name: setFallbackTags
+      displayName: Get newest DockerHub tags
+      env:
+        DOCKERHUB_USER: $(dockerHubUsername)
+
+  - job: BuildLlmAdapter
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
+    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.llmAdapterChanged'], 'True'))
+    variables:
+      imageTag: $(Build.BuildId)
+    steps:
+    - checkout: self
     - script: |
-        docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/llm-adapter:$(imageTag) \
-          -t $(dockerHubUsername)/llm-adapter:latest \
-          -f llm-adapter/Dockerfile \
-          --push \
-          .
-      displayName: 'Build & Push llm-adapter (amd64 + arm64)'
-      condition: eq(variables['llmAdapterChanged'], 'True')
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+      displayName: '🔑 Docker Login to Docker Hub'
+    - bash: |
+        set -euo pipefail
+        LLM_ADAPTER_TAG="$(Build.BuildId)"
+        echo "Using llm-adapter tag: $LLM_ADAPTER_TAG"
+        echo "##vso[task.setvariable variable=llmAdapterImageTag;isOutput=true]$LLM_ADAPTER_TAG"
+      name: setLlmAdapterTag
+      displayName: Set llm-adapter image tag
+    - task: Docker@2
+      displayName: 'Build & Push llm-adapter'
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/llm-adapter'
+        dockerfile: 'llm-adapter/Dockerfile'
+        tags: |
+          $(imageTag)
+          latest
 
+  - job: BuildApi
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
+    condition: and(succeeded(), eq(dependencies.DetectChanges.outputs['detect.sentimentApiChanged'], 'True'))
+    variables:
+      imageTag: $(Build.BuildId)
+    steps:
+    - checkout: self
     - script: |
-        docker buildx build --platform linux/amd64,linux/arm64 \
-          -t $(dockerHubUsername)/sentiment-api:$(imageTag) \
-          -t $(dockerHubUsername)/sentiment-api:latest \
-          -f sentiment-api/Dockerfile \
-          --push \
-          .
-      displayName: 'Build & Push sentiment-api (amd64 + arm64)'
-      condition: eq(variables['sentimentApiChanged'], 'True')
+        echo $(dockerHubPassword) | docker login -u $(dockerHubUsername) --password-stdin
+      displayName: '🔑 Docker Login to Docker Hub'
+    - bash: |
+        set -euo pipefail
+        SENTIMENT_API_TAG="$(Build.BuildId)"
+        echo "Using sentiment-api tag: $SENTIMENT_API_TAG"
+        echo "##vso[task.setvariable variable=sentimentApiImageTag;isOutput=true]$SENTIMENT_API_TAG"
+      name: setSentimentApiTag
+      displayName: Set sentiment-api image tag  
+    - task: Docker@2
+      displayName: 'Build & Push sentiment-api'
+      inputs:
+        command: buildAndPush
+        repository: '$(dockerHubUsername)/sentiment-api'
+        dockerfile: 'sentiment-api/Dockerfile'
+        tags: |
+          $(imageTag)
+          latest
+  - job: ResolveFinalTags
+    displayName: Resolve final image tags
+    dependsOn:
+    - DetectChanges
+    - ResolveFallbackTags
+    - BuildApi
+    - BuildLlmAdapter
+    condition: always()
+    variables:
+      sentimentApiChanged: $[ dependencies.DetectChanges.outputs['detect.sentimentApiChanged'] ]
+      llmAdapterChanged: $[ dependencies.DetectChanges.outputs['detect.llmAdapterChanged'] ]
+      sentimentApiFallbackTag: $[ dependencies.ResolveFallbackTags.outputs['setFallbackTags.sentimentApiFallbackTag'] ]
+      llmAdapterFallbackTag: $[ dependencies.ResolveFallbackTags.outputs['setFallbackTags.llmAdapterFallbackTag'] ]
+      builtSentimentApiTag: $[ dependencies.BuildApi.outputs['setSentimentApiTag.sentimentApiImageTag'] ]
+      builtLlmAdapterTag: $[ dependencies.BuildLlmAdapter.outputs['setLlmAdapterTag.llmAdapterImageTag'] ]
+    steps:
+    - bash: |
+        set -euo pipefail
+
+        if [ "$(sentimentApiChanged)" = "True" ] && [ -n "$(builtSentimentApiTag)" ]; then
+          FINAL_SENTIMENT_API_TAG="$(builtSentimentApiTag)"
+        else
+          FINAL_SENTIMENT_API_TAG="$(sentimentApiFallbackTag)"
+        fi
+
+        if [ "$(llmAdapterChanged)" = "True" ] && [ -n "$(builtLlmAdapterTag)" ]; then
+          FINAL_LLM_ADAPTER_TAG="$(builtLlmAdapterTag)"
+        else
+          FINAL_LLM_ADAPTER_TAG="$(llmAdapterFallbackTag)"
+        fi
+
+        echo "Final sentiment-api tag: $FINAL_SENTIMENT_API_TAG"
+        echo "Final llm-adapter tag: $FINAL_LLM_ADAPTER_TAG"
+
+        echo "##vso[task.setvariable variable=finalSentimentApiTag;isOutput=true]$FINAL_SENTIMENT_API_TAG"
+        echo "##vso[task.setvariable variable=finalLlmAdapterTag;isOutput=true]$FINAL_LLM_ADAPTER_TAG"
+      name: setFinalTags
+      displayName: Publish final tags
 
 
-- stage: Deploy
-  displayName: '3. Deploy to AKS'
-  dependsOn: Build
+- stage: Traefik
+  displayName: 'Deploy Traefik'
+  condition: eq(variables['DeployTraefik'], 'true')
   jobs:
-  - deployment: Deploy
-    displayName: 'Deploy'
-    environment: '$(environment)'
+  - deployment: DeployTraefik
+    displayName: 'Deploy Traefik'
+    environment: 'ingress'
     strategy:
       runOnce:
         deploy:
@@ -115,42 +259,12 @@ stages:
                   exit 1
                 }
 
-          - checkout: self
-            clean: true
-
           - script: |
-              echo "Adding Traefik Helm repository..."
               helm repo add traefik https://traefik.github.io/charts
               helm repo update
-              echo "Traefik repo added and updated"
-            displayName: 'Add Traefik Helm Repo'
+            displayName: 'Add/Update Traefik Helm Repo'
 
-          - script: |
-              echo "Replacing placeholder with resource group name: $(aksPipResourceGroupName)"
-              
-              sed -i "s/__AKS_RESOURCE_GROUP_NAME__/$(aksPipResourceGroupName)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace Resource Group Name'
-          - script: |
-              echo "Replacing placeholder with pip name: $(aksPipName)"
-              
-              sed -i "s/__AKS_PIP_NAME__/$(aksPipName)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace AKS PIP Name'
-          - script: |
-              echo "Replacing placeholder with IP: $(aksPublicIp)"
-              
-              sed -i "s/__AKS_PUBLIC_IP__/$(aksPublicIp)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace Public IP'
-
-          - task: HelmDeploy@0
+          - task: HelmDeploy@1
             displayName: 'Deploy Traefik'
             inputs:
               connectionType: 'Kubernetes Service Connection'
@@ -160,7 +274,29 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              arguments: '--install --atomic --create-namespace'
+              install: true
+              #valueFile: 'k8s/traefik-values.yml'
+              #overrideValues: |
+              #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-resource-group=$(aksPipResourceGroupName)
+              #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-pip-name=$(aksPipName)
+              #  service.spec.loadBalancerIP=$(aksPublicIp)
+              arguments: '--atomic --create-namespace --set providers.kubernetescrd.allowCrossNamespace=true'
+
+- stage: Deploy
+  displayName: '3. Deploy to AKS'
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    variables:
+      imageTag: $(Build.BuildId)
+    displayName: 'Deploy'
+    environment: '$(environment)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:          
+          - checkout: self
+            clean: true
 
           - script: |
               echo "Replacing namespace placeholder: $(namespace)"
@@ -185,10 +321,17 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
-              manifests: 'k8s/*.yaml'
+              manifests: |
+                k8s/sentiment-configmap.yaml
+                k8s/ollama-deployment.yaml                
+                k8s/llm-adapter-deployment.yaml
+                k8s/sentiment-api-deployment.yaml
+                k8s/sentiment-api-ingress.yaml
+                k8s/traefik-middlewares.yaml
+                k8s/traefik-sentiment-routes.yaml
               containers: |
-                $(dockerHubUsername)/llm-adapter:$(imageTag)
-                $(dockerHubUsername)/sentiment-api:$(imageTag)
+                $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
+                $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
 
           - task: Kubernetes@1
             displayName: 'Wait for Ollama Pod'
@@ -196,7 +339,7 @@ stages:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'wait'
-              arguments: '--for=condition=ready pod -l app=ollama -n dev --timeout=300s'
+              arguments: '--for=condition=ready pod -l app=ollama --timeout=300s'
               namespace: '$(namespace)'
 
           - task: Kubernetes@1
