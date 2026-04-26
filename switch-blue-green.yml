@@ -24,7 +24,7 @@ variables:
   serviceIndex: '0'
   blueNamespace: 'dev-blue'
   greenNamespace: 'dev-green'
-  serviceName: 'sentiment-api-service'
+  serviceName: 'sentiment-api'
 
 stages:
 - stage: Switch
