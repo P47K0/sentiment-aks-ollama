@@ -8,7 +8,7 @@ variables:
   dockerHubUsername: 'p47r1ck75'
   imageTag: '$(Build.BuildId)'
   
-  environment: 'dev'
+  environment: 'dev-blue'
   namespace: '$(environment)'
   model: 'phi3:mini'
 
@@ -203,15 +203,13 @@ stages:
       displayName: Publish final tags
 
 
-- stage: Deploy
-  displayName: '3. Deploy to AKS'
-  dependsOn: Build
+- stage: Traefik
+  displayName: 'Deploy Traefik'
+  condition: eq(variables['DeployTraefik'], 'true')
   jobs:
-  - deployment: Deploy
-    variables:
-      imageTag: $(Build.BuildId)
-    displayName: 'Deploy'
-    environment: '$(environment)'
+  - deployment: DeployTraefik
+    displayName: 'Deploy Traefik'
+    environment: 'ingress'
     strategy:
       runOnce:
         deploy:
@@ -261,42 +259,12 @@ stages:
                   exit 1
                 }
 
-          - checkout: self
-            clean: true
-
           - script: |
-              echo "Adding Traefik Helm repository..."
               helm repo add traefik https://traefik.github.io/charts
               helm repo update
-              echo "Traefik repo added and updated"
-            displayName: 'Add Traefik Helm Repo'
+            displayName: 'Add/Update Traefik Helm Repo'
 
-          - script: |
-              echo "Replacing placeholder with resource group name: $(aksPipResourceGroupName)"
-              
-              sed -i "s/__AKS_RESOURCE_GROUP_NAME__/$(aksPipResourceGroupName)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace Resource Group Name'
-          - script: |
-              echo "Replacing placeholder with pip name: $(aksPipName)"
-              
-              sed -i "s/__AKS_PIP_NAME__/$(aksPipName)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace AKS PIP Name'
-          - script: |
-              echo "Replacing placeholder with IP: $(aksPublicIp)"
-              
-              sed -i "s/__AKS_PUBLIC_IP__/$(aksPublicIp)/g" k8s/traefik-values.yml
-              
-              echo "Updated traefik-values.yml:"
-              cat k8s/traefik-values.yml
-            displayName: 'Traefik replace Public IP'
-
-          - task: HelmDeploy@0
+          - task: HelmDeploy@1
             displayName: 'Deploy Traefik'
             inputs:
               connectionType: 'Kubernetes Service Connection'
@@ -306,7 +274,29 @@ stages:
               chartType: 'Name'
               chartName: 'traefik/traefik'
               releaseName: 'traefik'
-              arguments: '--install --atomic --create-namespace'
+              install: true
+              #valueFile: 'k8s/traefik-values.yml'
+              #overrideValues: |
+              #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-resource-group=$(aksPipResourceGroupName)
+              #  service.annotations.service\\.beta\\.kubernetes\\.io/azure-load-balancer-pip-name=$(aksPipName)
+              #  service.spec.loadBalancerIP=$(aksPublicIp)
+              arguments: '--atomic --create-namespace --set providers.kubernetescrd.allowCrossNamespace=true'
+
+- stage: Deploy
+  displayName: '3. Deploy to AKS'
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    variables:
+      imageTag: $(Build.BuildId)
+    displayName: 'Deploy'
+    environment: '$(environment)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:          
+          - checkout: self
+            clean: true
 
           - script: |
               echo "Replacing namespace placeholder: $(namespace)"
@@ -331,7 +321,14 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
-              manifests: 'k8s/*.yaml'
+              manifests: |
+                k8s/sentiment-configmap.yaml
+                k8s/ollama-deployment.yaml                
+                k8s/llm-adapter-deployment.yaml
+                k8s/sentiment-api-deployment.yaml
+                k8s/sentiment-api-ingress.yaml
+                k8s/traefik-middlewares.yaml
+                k8s/traefik-sentiment-routes.yaml
               containers: |
                 $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
                 $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
@@ -342,7 +339,7 @@ stages:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'wait'
-              arguments: '--for=condition=ready pod -l app=ollama -n dev --timeout=300s'
+              arguments: '--for=condition=ready pod -l app=ollama --timeout=300s'
               namespace: '$(namespace)'
 
           - task: Kubernetes@1
