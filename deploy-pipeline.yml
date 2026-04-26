@@ -299,6 +299,9 @@ stages:
   dependsOn:
     - Build
     - Traefik
+  variables:
+    finalLlmAdapterTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
+    finalSentimentApiTag: $[ dependencies.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
   jobs:
   - deployment: Deploy
     variables:
