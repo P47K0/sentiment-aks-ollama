@@ -285,8 +285,8 @@ stages:
 - stage: Deploy
   displayName: '3. Deploy to AKS'
   dependsOn: |
-  - Build
-  - Traefik
+    - Build
+    - Traefik
   jobs:
   - deployment: Deploy
     variables:
