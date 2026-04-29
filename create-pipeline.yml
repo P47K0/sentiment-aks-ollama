@@ -110,7 +110,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Get AKS Load Balancer Public IP (Traefik)'
       inputs:
-        azureSubscription: 'Your-Subscription-Connection'
+        azureSubscription: 'VSPro-Azure-Connection'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
