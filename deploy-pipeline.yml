@@ -206,7 +206,7 @@ stages:
   displayName: 'Deploy Cert Manager'
   condition: eq(variables['DeployTraefikAndCertManager'], 'true')
   jobs:
-  - deployment: Deploy Cert Manager
+  - deployment: DeployCertManager
     displayName: 'Deploy Cert Manager'
     environment: 'cert-manager'
     strategy:
