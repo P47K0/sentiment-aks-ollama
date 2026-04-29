@@ -244,7 +244,7 @@ stages:
           - script: |
               kubectl create secret generic letsencrypt-prod-account-key \
                 --namespace cert-manager \
-                --dry-run=client -o yaml | kubectl apply -f -
+                --dry-run=client -o yaml | kubectl apply -f - --validate=false
             displayName: 'Create Lets Encrypt Account Key Secret'
 
 - stage: Traefik
