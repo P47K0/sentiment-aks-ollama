@@ -361,9 +361,9 @@ stages:
                 -H "Authorization: Bearer $(CloudflareApiToken)" \
                 -H "Content-Type: application/json" \
                 --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":120,\"proxied\":false}"
-          displayName: 'Get Traefik IP & Update Cloudflare'
-          env:
-            CloudflareApiToken: $(CloudflareApiToken)
+            displayName: 'Get Traefik IP & Update Cloudflare'
+            env:
+              CloudflareApiToken: $(CloudflareApiToken)
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
