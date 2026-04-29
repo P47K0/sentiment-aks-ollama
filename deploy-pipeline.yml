@@ -248,6 +248,12 @@ stages:
             displayName: 'Create Lets Encrypt Account Key Secret'
 
 - stage: Traefik
+  variables:
+    CLOUDFLARE_ZONE_ID: $[variables['cloudflare-zone-id']]
+    CLOUDFLARE_DNS_RECORD_ID: $[variables['cloudflare-dns-record-id']]
+    CLOUDFLARE_DOMAIN: $[variables['cloudflare-domain']]
+    TRAEFIK_NAMESPACE: ingress
+    TRAEFIK_SERVICE_NAME: traefik
   displayName: 'Deploy Traefik'
   condition: eq(variables['DeployTraefikAndCertManager'], 'true')
   jobs:
@@ -315,7 +321,7 @@ stages:
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              namespace: 'ingress'
+              namespace: '$(TRAEFIK_NAMESPACE)'
               command: 'upgrade'
               chartType: 'Name'
               chartName: 'traefik/traefik'
@@ -333,10 +339,31 @@ stages:
             inputs:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
-              namespace: 'ingress'
+              namespace: '$(TRAEFIK_NAMESPACE)'
               manifests: |                
                 k8s/traefik-middlewares.yaml
                 k8s/traefik-sentiment-routes.yaml
+
+          - task: Kubernetes@1
+            displayName: 'Get Traefik LoadBalancer IP'
+            inputs:
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              command: 'get'
+              arguments: 'svc/$(TRAEFIK_SERVICE_NAME) -n $(TRAEFIK_NAMESPACE) -o jsonpath="{.status.loadBalancer.ingress[0].ip}"'
+              secretType: 'generic'
+              secretArguments: '-o yaml > traefik-ip.yaml'
+
+          - bash: |
+              EXTERNAL_IP=$(kubectl get svc/$(TRAEFIK_SERVICE_NAME) -n $(TRAEFIK_NAMESPACE) -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+              echo "Updating Cloudflare with IP: $EXTERNAL_IP"
+              
+              curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
+                -H "Authorization: Bearer $(CloudflareApiToken)" \
+                -H "Content-Type: application/json" \
+                --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":120,\"proxied\":false}"
+          displayName: 'Get Traefik IP & Update Cloudflare'
+          env:
+            CloudflareApiToken: $(CloudflareApiToken)
 
 - stage: Deploy
   displayName: '3. Deploy to AKS'
@@ -412,4 +439,4 @@ stages:
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'exec'
               arguments: 'deploy/ollama -- ollama pull phi3:mini'
-              namespace: '$(namespace)'
+              namespace: '$(namespace)'              
