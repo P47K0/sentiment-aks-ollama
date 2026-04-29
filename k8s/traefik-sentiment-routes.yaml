@@ -38,4 +38,37 @@ spec:
         - kind: Service
           name: sentiment-api
           namespace: dev-blue
-          port: 80    
+          port: 80
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: sentiment-production
+  namespace: ingress
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`demourlisd.one`)
+      kind: Rule
+      services:
+        - name: sentiment-api
+          namespace: dev-blue
+          port: 80
+      middlewares:
+        - name: https-redirect
+    - match: HostRegexp(`{host:[a-z0-9.-]+.demourlisd.one`)
+      kind: Rule
+      services:
+        - name: sentiment-api
+          namespace: dev-blue
+          port: 80
+      middlewares:
+        - name: https-redirect
+  tls:
+    certResolver: letsencrypt
+    domains:
+      - main: demourlisd.one
+        sans:
+          - '*.demourlisd.one'

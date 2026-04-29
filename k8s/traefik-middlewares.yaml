@@ -8,3 +8,13 @@ spec:
     prefixes:
       - /green
       - /blue
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: ingress
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

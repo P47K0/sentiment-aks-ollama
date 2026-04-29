@@ -1,4 +1,12 @@
 # create-pipeline.yaml
+
+# Pipeline variables/secrets to set:
+# CloudflareApiToken → Secret (with DNS:Edit + Workers KV:Write permissions)
+# CloudflareZoneId → Your domain's Zone ID
+# CloudflareAccountId → Your Cloudflare Account ID
+# KV_Namespace_ID → ID of your DEMO_BACKEND KV namespace
+# AzureDnsRecordId → The DNS Record ID of the azure A record (you need to get this once)
+
 trigger: none
 
 pool:
@@ -98,3 +106,75 @@ stages:
         targetPath: '$(Build.ArtifactStagingDirectory)'
         artifact: 'cluster-data'
         publishLocation: 'pipeline'
+
+    - task: AzureCLI@2
+      displayName: 'Get AKS Load Balancer Public IP (Traefik)'
+      inputs:
+        azureSubscription: 'Your-Subscription-Connection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Waiting for Traefik Load Balancer IP to be assigned..."
+
+          for i in {1..40}; do
+            LB_IP=$(kubectl get svc traefik -n ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+
+            if [[ -n "$LB_IP" && "$LB_IP" != "<pending>" ]]; then
+              echo "Load Balancer IP found: $LB_IP"
+              echo "##vso[task.setvariable variable=AKS_LB_PUBLIC_IP]$LB_IP"
+              break
+            fi
+
+            echo "Still pending... waiting 15 seconds ($i/40)"
+            sleep 15
+          done
+
+          if [[ -z "$LB_IP" ]]; then
+            echo "Failed to get Load Balancer IP after timeout"
+            exit 1
+          fi
+
+    - task: PowerShell@2
+      displayName: 'Update azure.demourlisd.one DNS + Cloudflare KV'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $headers = @{
+            "Authorization" = "Bearer $(CloudflareApiToken)"
+            "Content-Type"  = "application/json"
+          }
+
+          # === 1. Update DNS Record for azure.demourlisd.one ===
+          $dnsBody = @{
+            type    = "A"
+            name    = "azure"
+            content = "$(AKS_LB_PUBLIC_IP)"
+            ttl     = 60
+            proxied = $true
+          } | ConvertTo-Json
+
+          Write-Host "Updating DNS record azure.demourlisd.one -> $(AKS_LB_PUBLIC_IP)"
+
+          Invoke-RestMethod -Method PUT `
+            -Uri "https://api.cloudflare.com/client/v4/zones/$(CloudflareZoneId)/dns_records/$(AzureDnsRecordId)" `
+            -Headers $headers `
+            -Body $dnsBody
+
+          Write-Host "DNS record updated successfully"
+
+          # === 2. Update Cloudflare KV with the backend URL ===
+          $kvHeaders = @{
+            "Authorization" = "Bearer $(CloudflareApiToken)"
+            "Content-Type"  = "text/plain"
+          }
+
+          $backendUrl = "https://azure.demourlisd.one"
+
+          Write-Host "Updating KV: backend_url = $backendUrl"
+
+          Invoke-RestMethod -Method PUT `
+            -Uri "https://api.cloudflare.com/client/v4/accounts/$(CloudflareAccountId)/storage/kv/namespaces/$(KV_Namespace_ID)/values/backend_url" `
+            -Headers $kvHeaders `
+            -Body $backendUrl
+
+          Write-Host "KV updated successfully. Domain now points to new AKS backend."

@@ -202,10 +202,52 @@ stages:
       name: setFinalTags
       displayName: Publish final tags
 
+- stage: Cert Manager
+  displayName: 'Deploy Cert Manager'
+  condition: eq(variables['DeployTraefikAndCertManager'], 'true')
+  jobs:
+  - deployment: Deploy Cert Manager
+    displayName: 'Deploy Cert Manager'
+    environment: 'cert-manager'
+    strategy:
+      runOnce:
+        deploy:
+          steps:          
+          - script: |
+              helm repo add jetstack https://charts.jetstack.io
+              helm repo update
+            displayName: 'Add/Update Cert Manager Repo'
+
+          - task: HelmDeploy@1
+            displayName: 'Deploy Cert Manager'
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              namespace: 'cert-manager'
+              command: 'upgrade'
+              chartType: 'Name'
+              chartName: 'jetstack/cert-manager'
+              releaseName: 'cert-manager'
+              install: true              
+              arguments: '--create-namespace --set crds.enabled=true'
+
+          - task: KubernetesManifest@1
+            displayName: 'Deploy cluster issuer'
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              manifests: |                
+                k8s/cluster-issuer.yaml
+
+          - script: |
+              kubectl create secret generic letsencrypt-prod-account-key \
+                --namespace cert-manager \
+                --dry-run=client -o yaml | kubectl apply -f -
+            displayName: 'Create Lets Encrypt Account Key Secret'
 
 - stage: Traefik
   displayName: 'Deploy Traefik'
-  condition: eq(variables['DeployTraefik'], 'true')
+  condition: eq(variables['DeployTraefikAndCertManager'], 'true')
   jobs:
   - deployment: DeployTraefik
     displayName: 'Deploy Traefik'
