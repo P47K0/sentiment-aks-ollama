@@ -202,7 +202,7 @@ stages:
       name: setFinalTags
       displayName: Publish final tags
 
-- stage: Cert Manager
+- stage: CertManager
   displayName: 'Deploy Cert Manager'
   condition: eq(variables['DeployTraefikAndCertManager'], 'true')
   jobs:
