@@ -350,7 +350,7 @@ stages:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'get'
-              arguments: 'svc/traefik -n $(TRAEFIK_NAMESPACE) -o yaml > traefik-ip.yaml'
+              arguments: 'svc traefik -n $(TRAEFIK_NAMESPACE) -o yaml > traefik-ip.yaml'
 
           - task: Bash@3
             displayName: 'Update Cloudflare DNS'
