@@ -345,23 +345,24 @@ stages:
                 k8s/traefik-sentiment-routes.yaml
 
           - task: Kubernetes@1
-            displayName: 'Get Traefik LoadBalancer IP'
+            displayName: 'Get Traefik Service YAML'
             inputs:
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               command: 'get'
-              arguments: 'svc/$(TRAEFIK_SERVICE_NAME) -n $(TRAEFIK_NAMESPACE) -o jsonpath="{.status.loadBalancer.ingress[0].ip}"'
-              secretType: 'generic'
-              secretArguments: '-o yaml > traefik-ip.yaml'
+              arguments: 'svc/traefik -n $(TRAEFIK_NAMESPACE) -o yaml > traefik-ip.yaml'
 
-          - bash: |
-              EXTERNAL_IP=$(kubectl get svc/$(TRAEFIK_SERVICE_NAME) -n $(TRAEFIK_NAMESPACE) -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-              echo "Updating Cloudflare with IP: $EXTERNAL_IP"
-              
-              curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
-                -H "Authorization: Bearer $(CloudflareApiToken)" \
-                -H "Content-Type: application/json" \
-                --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":120,\"proxied\":false}"
-            displayName: 'Get Traefik IP & Update Cloudflare'
+          - task: Bash@3
+            displayName: 'Update Cloudflare DNS'
+            inputs:
+              targetType: 'inline'
+              script: |
+                EXTERNAL_IP=$(grep -A2 'loadBalancer:' traefik-ip.yaml | grep 'ip:' | head -1 | awk '{print $2}')
+                echo "Updating Cloudflare with IP: $EXTERNAL_IP"
+
+                curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
+                  -H "Authorization: Bearer $CloudflareApiToken" \
+                  -H "Content-Type: application/json" \
+                  --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":120,\"proxied\":false}"
             env:
               CloudflareApiToken: $(CloudflareApiToken)
 
