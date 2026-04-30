@@ -347,7 +347,8 @@ stages:
           - task: Kubernetes@1
             displayName: 'Get Traefik Service YAML'
             inputs:
-              kubernetesServiceConnection: 'AKS-VSPro-Connection'
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'get'
               arguments: 'svc/traefik -n $(TRAEFIK_NAMESPACE) -o yaml > traefik-ip.yaml'
 
