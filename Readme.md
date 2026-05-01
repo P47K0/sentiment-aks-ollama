@@ -122,7 +122,8 @@ After that, the pipeline will run automatically on every push to `main`.
 - Real-world troubleshooting (probes, image compatibility, state management)
 
 ## TODO
-- Assign Public IP that is created by Terraform to AKS LB
-- Use cert-manager for the TLS certificates instead of Traefik
+- Assign Public IP created by Terraform to AKS LB.
+- Use cert-manager for TLS certificates instead of Traefik‑managed certificates.
+- Separate third‑party Helm deployments (Traefik, cert‑manager, etc.) from the main app deployment pipeline.
 
 
