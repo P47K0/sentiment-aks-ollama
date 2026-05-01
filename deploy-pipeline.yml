@@ -250,10 +250,10 @@ stages:
 - stage: Traefik
   variables:
     CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
-    CLOUDFLARE_ZONE_ID: $[variables['CloudflareZoneId']]
-    CLOUDFLARE_DNS_RECORD_ID: $[variables['AzureDnsRecordId']]
+    CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
+    CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
     CLOUDFLARE_DOMAIN: 'azure'
-    KV_NAMESPACE_ID: $[variables['CloudflareZoneId']]
+    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)     # ← Fix this, do NOT use ZoneId
     TRAEFIK_NAMESPACE: ingress
     TRAEFIK_SERVICE_NAME: traefik
   displayName: 'Deploy Traefik'
@@ -353,6 +353,7 @@ stages:
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'get'
               arguments: 'svc traefik -n $(TRAEFIK_NAMESPACE) -o jsonpath={.status.loadBalancer.ingress[0].ip}'
+              outputFormat: 'none'
             name: getTraefikIP
 
           - task: Bash@3
@@ -360,18 +361,18 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                EXTERNAL_IP="$(getTraefikIP.KubectlOutput)"
-                echo "External IP: $EXTERNAL_IP"
+                EXTERNAL_IP=$(getTraefikIP.KubectlOutput | tr -d ' \n\r\t')
+                echo "External IP: [$EXTERNAL_IP]"
 
                 # Update DNS
                 curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
-                  -H "Authorization: Bearer $CloudflareApiToken" \
+                  -H "Authorization: Bearer $(CloudflareApiToken)" \
                   -H "Content-Type: application/json" \
                   --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":60,\"proxied\":true}"
 
                 # Update KV (URL)
                 curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$(CLOUDFLARE_ACCOUNT_ID)/storage/kv/namespaces/$(KV_NAMESPACE_ID)/values/backend_url" \
-                  -H "Authorization: Bearer $CloudflareApiToken" \
+                  -H "Authorization: Bearer $(CloudflareApiToken)" \
                   -H "Content-Type: text/plain" \
                   --data "https://azure.demourlisd.one"
             env:

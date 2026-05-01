@@ -108,7 +108,7 @@ After that, the pipeline will run automatically on every push to `main`.
 - Application: Ollama, Python/Flask, Docker
 - CI/CD: Azure DevOps, Docker, Helm, KubernetesManifest
 - Cost Optimization: Spot instances, Dpsv6 ARM nodes
-
+- Created NameSilo domain name with Cloudflare worker, IP for domain is updated by pipeline. When AKS is offline a static page is shown.
 
 ## Learning Outcomes
 
@@ -120,4 +120,9 @@ After that, the pipeline will run automatically on every push to `main`.
 - IaC with Terraform + GitOps-style deployment
 - Practical CI/CD pipeline design for multi-service applications
 - Real-world troubleshooting (probes, image compatibility, state management)
+
+## TODO
+- Assign Public IP that is created by Terraform to AKS LB
+- Use cert-manager for the TLS certificates instead of Traefik
+
 
