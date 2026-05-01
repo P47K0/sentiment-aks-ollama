@@ -3,9 +3,10 @@ kind: ConfigMap
 metadata:
   name: sentiment-config
 data:
+  LANGUAGE_DETECTION_ENABLED: 'true'
   OLLAMA_URL: "http://ollama-service:11434"
   MODEL: "phi3:mini"
-  ADAPTER_URL: "http://llm-adapter:5000/sentiment"
+  ADAPTER_URL: "http://llm-adapter:5000"
   PROMPT_TEMPLATE: |
     You are a sentiment analysis model.
     Analyze the sentiment of the text below and respond with **ONLY** valid JSON.
@@ -20,3 +21,19 @@ data:
       "neutral": number between 0.0 and 1.0,
       "negative": number between 0.0 and 1.0
     }}
+  LANGUAGE_PROMPT_TEMPLATE: |
+    You are a language detection model.
+    Detect the language of the text below and respond with **ONLY** valid JSON.
+    No explanations, no extra text, no markdown, no apologies.
+
+    Text: {text}
+
+    Return exactly one JSON object with this schema:
+    {{
+      "language": "en"
+    }}
+
+    Rules:
+    - "language" must be a lowercase ISO 639-1 code.
+    - Return only the JSON object.
+  

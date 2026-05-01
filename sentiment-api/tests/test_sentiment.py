@@ -73,7 +73,7 @@ def test_sentiment_timeout(client):
     text = "This is a positive sentence."                                                                                           
     expected_response = {"error": "Failed to get sentiment", "details": "Request timed out"}                                        
                                                                                                                                     
-    with patch('requests.post') as mock_post:                                                                                       
+    with patch('requests.post') as mock_post:
         mock_post.side_effect = requests.exceptions.Timeout("Request timed out")                                                    
                                                                                                                                     
         response = client.post('/sentiment', json={"text": text})                                                                   

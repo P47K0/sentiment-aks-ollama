@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # Point to the new LLM Adapter service instead of Azure
-ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000/sentiment")
+ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
 
 @app.errorhandler(405)
 def method_not_allowed(e):
@@ -28,7 +28,7 @@ def sentiment():
         return jsonify({"error": "No text provided"}), 400
 
     try:
-        response = requests.post(ADAPTER_URL, json={"text": text}, timeout=30)
+        response = requests.post(f"{ADAPTER_URL}/sentiment", json={"text": text}, timeout=30)
         response.raise_for_status()
         result = response.json()
 
@@ -50,13 +50,49 @@ def ready():
     """Readiness probe - checks if the app can connect to the adapter"""
     try:
         # Quick check if adapter is reachable
-        response = requests.get("http://llm-adapter:5000/health", timeout=2)
+        response = requests.get(f"{ADAPTER_URL}/health", timeout=2)
         if response.status_code == 200:
             return jsonify({"status": "ready"}), 200
         else:
             return jsonify({"status": "not ready"}), 503
     except:
         return jsonify({"status": "not ready"}), 503
+
+@app.route('/detect-language', methods=['POST'])
+def detect_language():
+    LANGUAGE_DETECTION_ENABLED = os.getenv("LANGUAGE_DETECTION_ENABLED", "false").lower() == "true"
+    if not LANGUAGE_DETECTION_ENABLED:
+        return jsonify({"error": "Language detection is disabled"}), 403
+
+    try:
+        data = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Malformed JSON"}), 400
+    
+    try:
+        text = data.get("text", "")
+    except AttributeError:
+        return jsonify({"error": "No text provided"}), 400
+    
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        response = requests.post(f"{ADAPTER_URL}/detect-language", json={"text": text}, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+
+        if not isinstance(result, dict) or "language" not in result:
+            return jsonify({"error": "Unexpected upstream response format"}), 500
+
+        return jsonify(result)
+        
+    except requests.Timeout:
+        return jsonify({"error": "Ollama timeout"}), 504
+    except requests.RequestException as e:
+        return jsonify({"error": "Failed to detect language", "details": str(e)}), 500    
+    except Exception as e:
+        return jsonify({"error": "Failed to detect language", "details": str(e)}), 500
 
 
 if __name__ == '__main__':
