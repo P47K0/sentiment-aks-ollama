@@ -342,8 +342,7 @@ stages:
                 k8s/traefik-sentiment-routes.yaml                    
 
 - stage: CloudflareSetup
-  dependsOn: |
-    - Traefik
+  dependsOn: Traefik
   condition: 
     in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
   variables:
