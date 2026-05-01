@@ -253,7 +253,7 @@ stages:
     CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
     CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
     CLOUDFLARE_DOMAIN: 'azure'
-    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)     # ← Fix this, do NOT use ZoneId
+    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)
     TRAEFIK_NAMESPACE: ingress
     TRAEFIK_SERVICE_NAME: traefik
   displayName: 'Deploy Traefik'
@@ -361,8 +361,8 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                EXTERNAL_IP=$(getTraefikIP.KubectlOutput | tr -d ' \n\r\t')
-                echo "External IP: [$EXTERNAL_IP]"
+                EXTERNAL_IP=$(echo "$GETTRAFIKIP_KUBECTLOUTPUT" | tr -d ' \n\r\t')
+                echo "External IP: $EXTERNAL_IP"
 
                 # Update DNS
                 curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
