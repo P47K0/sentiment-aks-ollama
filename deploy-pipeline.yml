@@ -249,9 +249,11 @@ stages:
 
 - stage: Traefik
   variables:
-    CLOUDFLARE_ZONE_ID: $[variables['cloudflare-zone-id']]
-    CLOUDFLARE_DNS_RECORD_ID: $[variables['cloudflare-dns-record-id']]
-    CLOUDFLARE_DOMAIN: $[variables['cloudflare-domain']]
+    CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
+    CLOUDFLARE_ZONE_ID: $[variables['CloudflareZoneId']]
+    CLOUDFLARE_DNS_RECORD_ID: $[variables['AzureDnsRecordId']]
+    CLOUDFLARE_DOMAIN: 'azure'
+    KV_NAMESPACE_ID: $[variables['CloudflareZoneId']]
     TRAEFIK_NAMESPACE: ingress
     TRAEFIK_SERVICE_NAME: traefik
   displayName: 'Deploy Traefik'
@@ -345,30 +347,33 @@ stages:
                 k8s/traefik-sentiment-routes.yaml
 
           - task: Kubernetes@1
-            displayName: 'Get Traefik Service YAML'
+            displayName: 'Get Traefik IP'
             inputs:
               connectionType: 'Kubernetes Service Connection'
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'get'
-              arguments: 'svc traefik -n $(TRAEFIK_NAMESPACE)'
-              outputFormat: 'yaml'
-          
-          - bash: |
-              echo "$KUBERNETES_SERVICE_CONNECTION_OUTPUT" > traefik-ip.yaml
-            displayName: 'Save to traefik-ip.yaml'
+              arguments: 'svc traefik -n $(TRAEFIK_NAMESPACE) -o jsonpath={.status.loadBalancer.ingress[0].ip}'
+            name: getTraefikIP
 
           - task: Bash@3
-            displayName: 'Update Cloudflare DNS'
+            displayName: 'Update Cloudflare DNS + KV'
             inputs:
               targetType: 'inline'
               script: |
-                EXTERNAL_IP=$(grep -A2 'loadBalancer:' traefik-ip.yaml | grep 'ip:' | head -1 | awk '{print $2}')
-                echo "Updating Cloudflare with IP: $EXTERNAL_IP"
+                EXTERNAL_IP="$(getTraefikIP.KubectlOutput)"
+                echo "External IP: $EXTERNAL_IP"
 
+                # Update DNS
                 curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
                   -H "Authorization: Bearer $CloudflareApiToken" \
                   -H "Content-Type: application/json" \
-                  --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":120,\"proxied\":false}"
+                  --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$EXTERNAL_IP\",\"ttl\":60,\"proxied\":true}"
+
+                # Update KV (URL)
+                curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$(CLOUDFLARE_ACCOUNT_ID)/storage/kv/namespaces/$(KV_NAMESPACE_ID)/values/backend_url" \
+                  -H "Authorization: Bearer $CloudflareApiToken" \
+                  -H "Content-Type: text/plain" \
+                  --data "https://azure.demourlisd.one"
             env:
               CloudflareApiToken: $(CloudflareApiToken)
 

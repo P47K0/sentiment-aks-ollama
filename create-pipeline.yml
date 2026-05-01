@@ -1,4 +1,12 @@
 # create-pipeline.yaml
+
+# Pipeline variables/secrets to set:
+# CloudflareApiToken → Secret (with DNS:Edit + Workers KV:Write permissions)
+# CloudflareZoneId → Your domain's Zone ID
+# CloudflareAccountId → Your Cloudflare Account ID
+# KV_Namespace_ID → ID of your DEMO_BACKEND KV namespace
+# AzureDnsRecordId → The DNS Record ID of the azure A record (you need to get this once)
+
 trigger: none
 
 pool:
