@@ -7,96 +7,178 @@ pool:
   vmImage: ubuntu-latest
 
 parameters:
-- name: mode
-  displayName: Switch mode
+- name: deploymentStrategy
+  displayName: Deployment strategy
+  type: string
+  default: blue-green
+  values:
+  - blue-green
+  - canary
+
+- name: BlueGreenMode
+  displayName: Switch between Blue and Green
   type: string
   default: toggle
   values:
   - toggle
   - to-blue
   - to-green
+  
+- name: canaryGreenWeight
+  displayName: Canary Green weight
+  type: string
+  default: '50'
+  values:
+  - '10'
+  - '25'
+  - '50'
 
 variables:
   kubernetesServiceConnection: 'AKS-VSPro-Connection'
   ingressNamespace: 'ingress'
-  ingressRouteName: 'sentiment-routes'
-  routeIndex: '0'
-  serviceIndex: '0'
+  weightedServiceName: 'sentiment-prod-weighted'
+  blueServiceIndex: '0'
+  greenServiceIndex: '1'
   blueNamespace: 'dev-blue'
   greenNamespace: 'dev-green'
   serviceName: 'sentiment-api'
 
 stages:
-- stage: Switch
-  displayName: Blue/Green Switch
-  jobs:
-  - job: SwitchTraffic
-    displayName: Switch production traffic
-    steps:
-    - task: Kubernetes@1
-      displayName: Login to AKS
-      inputs:
-        connectionType: 'Kubernetes Service Connection'
-        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-        command: login
+- ${{ if eq(parameters.deploymentStrategy, 'blue-green') }}:
+  - stage: Switch
+    displayName: Blue/Green Switch
+    jobs:
+    - job: SwitchTraffic
+      displayName: Switch production traffic
+      steps:
+      - task: Kubernetes@1
+        displayName: Login to AKS
+        inputs:
+          connectionType: 'Kubernetes Service Connection'
+          kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+          command: login
 
-    - bash: |
-        set -euo pipefail
+      - bash: |
+          set -euo pipefail
 
-        CURRENT=$(kubectl get ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.routes[$(routeIndex)].services[$(serviceIndex)].namespace}")
+          CURRENT_BLUE=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(blueServiceIndex)].weight}")
+          CURRENT_GREEN=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(greenServiceIndex)].weight}")
 
-        if [ -z "$CURRENT" ]; then
-          echo "Could not determine current production namespace."
-          exit 1
-        fi
-
-        case "${{ parameters.mode }}" in
-          toggle)
-            if [ "$CURRENT" = "$(blueNamespace)" ]; then
-              TARGET="$(greenNamespace)"
-            elif [ "$CURRENT" = "$(greenNamespace)" ]; then
-              TARGET="$(blueNamespace)"
-            else
-              echo "Current namespace '$CURRENT' is not expected."
-              exit 1
-            fi
-            ;;
-          to-blue)
-            TARGET="$(blueNamespace)"
-            ;;
-          to-green)
-            TARGET="$(greenNamespace)"
-            ;;
-          *)
-            echo "Unsupported mode: ${{ parameters.mode }}"
+          if [ -z "$CURRENT_BLUE" ] || [ -z "$CURRENT_GREEN" ]; then
+            echo "Could not determine current production weights."
             exit 1
-            ;;
-        esac
+          fi
 
-        echo "Current production namespace: $CURRENT"
-        echo "Target production namespace: $TARGET"
+          case "${{ parameters.mode }}" in
+            toggle)
+              if [ "$CURRENT_GREEN" -gt "$CURRENT_BLUE" ]; then
+                TARGET_BLUE="100"
+                TARGET_GREEN="0"
+              else
+                TARGET_BLUE="0"
+                TARGET_GREEN="100"
+              fi
+              ;;
+            to-blue)
+              TARGET_BLUE="100"
+              TARGET_GREEN="0"
+              ;;
+            to-green)
+              TARGET_BLUE="0"
+              TARGET_GREEN="100"
+              ;;
+            *)
+              echo "Unsupported mode: ${{ parameters.mode }}"
+              exit 1
+              ;;
+          esac
 
-        kubectl get svc "$(serviceName)" -n "$TARGET" >/dev/null
+          echo "Current production weights: blue=$CURRENT_BLUE green=$CURRENT_GREEN"
+          echo "Target production weights: blue=$TARGET_BLUE green=$TARGET_GREEN"
 
-        if [ "$CURRENT" != "$TARGET" ]; then
-          kubectl patch ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" --type=json \
-            -p="[{\"op\":\"replace\",\"path\":\"/spec/routes/$(routeIndex)/services/$(serviceIndex)/namespace\",\"value\":\"$TARGET\"}]"
-        fi
+          kubectl get svc "$(serviceName)" -n "$(blueNamespace)" >/dev/null
+          kubectl get svc "$(serviceName)" -n "$(greenNamespace)" >/dev/null
 
-        UPDATED=$(kubectl get ingressroute "$(ingressRouteName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.routes[$(routeIndex)].services[$(serviceIndex)].namespace}")
+          kubectl patch traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" --type='json' \
+            -p="[
+              {\"op\":\"replace\",\"path\":\"/spec/weighted/services/$(blueServiceIndex)/weight\",\"value\":$TARGET_BLUE},
+              {\"op\":\"replace\",\"path\":\"/spec/weighted/services/$(greenServiceIndex)/weight\",\"value\":$TARGET_GREEN}
+            ]"
 
-        echo "Updated production namespace: $UPDATED"
+          UPDATED_BLUE=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(blueServiceIndex)].weight}")
+          UPDATED_GREEN=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(greenServiceIndex)].weight}")
 
-        if [ "$UPDATED" != "$TARGET" ]; then
-          echo "Switch verification failed."
-          exit 1
-        fi
-      displayName: Toggle blue/green route
+          echo "Updated production weights: blue=$UPDATED_BLUE green=$UPDATED_GREEN"
 
-    - task: Kubernetes@1
-      displayName: Logout from AKS
-      condition: always()
-      inputs:
-        connectionType: 'Kubernetes Service Connection'
-        kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
-        command: logout
+          if [ "$UPDATED_BLUE" != "$TARGET_BLUE" ] || [ "$UPDATED_GREEN" != "$TARGET_GREEN" ]; then
+            echo "Switch verification failed."
+            exit 1
+          fi
+        displayName: Toggle blue/green route
+
+      - task: Kubernetes@1
+        displayName: Logout from AKS
+        condition: always()
+        inputs:
+          connectionType: 'Kubernetes Service Connection'
+          kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+          command: logout
+
+- ${{ if eq(parameters.deploymentStrategy, 'canary') }}:
+  - stage: Canary
+    displayName: Canary Rollout
+    jobs:
+    - job: CanaryTraffic
+      displayName: Shift partial production traffic to green
+      steps:
+      - task: Kubernetes@1
+        displayName: Login to AKS
+        inputs:
+          connectionType: 'Kubernetes Service Connection'
+          kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+          command: login
+
+      - bash: |
+          set -euo pipefail
+
+          GREEN_WEIGHT="${{ parameters.canaryGreenWeight }}"
+          BLUE_WEIGHT=$((100 - GREEN_WEIGHT))
+
+          CURRENT_BLUE=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(blueServiceIndex)].weight}")
+          CURRENT_GREEN=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(greenServiceIndex)].weight}")
+
+          if [ -z "$CURRENT_BLUE" ] || [ -z "$CURRENT_GREEN" ]; then
+            echo "Could not determine current production weights."
+            exit 1
+          fi
+
+          echo "Current production weights: blue=$CURRENT_BLUE green=$CURRENT_GREEN"
+          echo "Target canary weights: blue=$BLUE_WEIGHT green=$GREEN_WEIGHT"
+
+          kubectl get svc "$(serviceName)" -n "$(blueNamespace)" >/dev/null
+          kubectl get svc "$(serviceName)" -n "$(greenNamespace)" >/dev/null
+
+          kubectl patch traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" --type='json' \
+            -p="[
+              {\"op\":\"replace\",\"path\":\"/spec/weighted/services/$(blueServiceIndex)/weight\",\"value\":$BLUE_WEIGHT},
+              {\"op\":\"replace\",\"path\":\"/spec/weighted/services/$(greenServiceIndex)/weight\",\"value\":$GREEN_WEIGHT}
+            ]"
+
+          UPDATED_BLUE=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(blueServiceIndex)].weight}")
+          UPDATED_GREEN=$(kubectl get traefikservice "$(weightedServiceName)" -n "$(ingressNamespace)" -o jsonpath="{.spec.weighted.services[$(greenServiceIndex)].weight}")
+
+          echo "Updated canary weights: blue=$UPDATED_BLUE green=$UPDATED_GREEN"
+
+          if [ "$UPDATED_BLUE" != "$BLUE_WEIGHT" ] || [ "$UPDATED_GREEN" != "$GREEN_WEIGHT" ]; then
+            echo "Canary verification failed."
+            exit 1
+          fi
+        displayName: Apply canary weights
+
+      - task: Kubernetes@1
+        displayName: Logout from AKS
+        condition: always()
+        inputs:
+          connectionType: 'Kubernetes Service Connection'
+          kubernetesServiceEndpoint: '$(kubernetesServiceConnection)'
+          command: logout

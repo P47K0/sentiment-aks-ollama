@@ -1,0 +1,23 @@
+apiVersion: traefik.io/v1alpha1
+kind: TraefikService
+metadata:
+  name: sentiment-prod-weighted
+  namespace: ingress
+spec:
+  weighted:
+    sticky:
+      cookie:
+        name: canary_version
+        httpOnly: true
+        secure: false
+    services:
+      - kind: Service
+        name: sentiment-api
+        namespace: dev-blue
+        port: 80
+        weight: 50
+      - kind: Service
+        name: sentiment-api
+        namespace: dev-green
+        port: 80
+        weight: 50

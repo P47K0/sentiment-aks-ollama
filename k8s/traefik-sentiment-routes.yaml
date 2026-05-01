@@ -35,10 +35,9 @@ spec:
       kind: Rule
       priority: 100
       services:
-        - kind: Service
-          name: sentiment-api
-          namespace: dev-blue
-          port: 80
+        - kind: TraefikService
+          name: sentiment-prod-weighted
+          namespace: ingress
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
