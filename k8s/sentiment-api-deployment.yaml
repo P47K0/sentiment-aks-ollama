@@ -17,6 +17,12 @@ spec:
       containers:
       - name: sentiment-api
         image: p47r1ck75/sentiment-api
+        env:
+        - name: LANGUAGE_DETECTION_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: sentiment-config
+              key: LANGUAGE_DETECTION_ENABLED
         ports:
         - containerPort: 5000
         resources:

@@ -399,6 +399,7 @@ stages:
     in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
     )
   variables:
+    FEATURE_FLAG_DETECT_LANGUAGE: $(FeatureFlagDetectLanguage)
     finalLlmAdapterTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
     finalSentimentApiTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalSentimentApiTag'] ]
   jobs:
@@ -414,11 +415,9 @@ stages:
           - checkout: self
             clean: true
 
-          - script: |
+          - bash: |
               echo "Replacing namespace placeholder: $(namespace)"
-              
               sed -i "s/__NAMESPACE__/$(namespace)/g" k8s/namespace.yml
-              
               echo "Updated namespace.yml:"
               cat k8s/namespace.yml
             displayName: 'Replace Namespace'
@@ -430,6 +429,13 @@ stages:
               kubernetesServiceEndpoint: 'AKS-VSPro-Connection'
               command: 'apply'
               arguments: '-f k8s/namespace.yml'
+
+          - bash: |
+              echo "Replacing feature flag placeholder: $(FEATURE_FLAG_DETECT_LANGUAGE)"
+              sed -i "s|__FeatureFlagDetectLanguage__|$(FEATURE_FLAG_DETECT_LANGUAGE)|g" k8s/sentiment-configmap.yaml
+              echo "Updated sentiment-configmap.yaml:"
+              cat k8s/sentiment-configmap.yaml
+            displayName: Replace feature flag
 
           - task: KubernetesManifest@1
             displayName: 'Deploy Application'

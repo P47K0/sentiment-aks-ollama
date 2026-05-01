@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: sentiment-config
 data:
-  LANGUAGE_DETECTION_ENABLED: 'true'
+  LANGUAGE_DETECTION_ENABLED: '__FeatureFlagDetectLanguage__'
   OLLAMA_URL: "http://ollama-service:11434"
   MODEL: "phi3:mini"
   ADAPTER_URL: "http://llm-adapter:5000"
