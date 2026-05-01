@@ -1,0 +1,88 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  location: 'centralindia'
+
+stages:
+- stage: RestoreCloudflare
+  variables:
+    CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
+    CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
+    CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
+    CLOUDFLARE_DOMAIN: 'azure'
+    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)
+    ORIGINAL_IP: $(OriginalIP) 
+  displayName: 'Restore Cloudflare'
+  jobs:
+  - deployment: Restore
+    displayName: 'Restore Cloudflare Worker + DNS'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: Bash@3
+            displayName: 'Revert to Static Page'
+            inputs:
+              targetType: 'inline'
+              script: |
+                echo "Reverting to original IP: $(ORIGINAL_IP)"
+
+                # Revert DNS record to original IP
+                curl -X PUT "https://api.cloudflare.com/client/v4/zones/$(CLOUDFLARE_ZONE_ID)/dns_records/$(CLOUDFLARE_DNS_RECORD_ID)" \
+                  -H "Authorization: Bearer $(CloudflareApiToken)" \
+                  -H "Content-Type: application/json" \
+                  --data "{\"type\":\"A\",\"name\":\"$(CLOUDFLARE_DOMAIN)\",\"content\":\"$(ORIGINAL_IP)\",\"ttl\":60,\"proxied\":true}"
+
+                # Set KV backend_url to empty string
+                curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$(CLOUDFLARE_ACCOUNT_ID)/storage/kv/namespaces/$(KV_NAMESPACE_ID)/values/backend_url" \
+                  -H "Authorization: Bearer $(CloudflareApiToken)" \
+                  -H "Content-Type: text/plain" \
+                  --data ""
+            env:
+              CloudflareApiToken: $(CloudflareApiToken)
+           
+- stage: TeardownAKS
+  variables:    
+    RESOURCE_GROUP: az400-practice
+  displayName: 'Delete Resources in AZ-400 RG'
+  dependsOn: RestoreCloudflare
+  jobs:
+  - job: Cleanup
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Delete ALL resources in $(RESOURCE_GROUP) RG'
+      inputs:
+        azureSubscription: 'VSPro-Azure-Connection'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Listing resources in $(RESOURCE_GROUP) before deletion..."
+          az resource list --resource-group $(RESOURCE_GROUP) --output table
+          
+          echo "Deleting ALL resources (RG stays intact)..."
+          resources=$(az resource list --resource-group $(RESOURCE_GROUP) --query "[].id" -o tsv)
+          
+          if [ -z "$resources" ]; then
+            echo "No resources found - RG already clean"
+          else
+            for resource_id in $resources; do
+              echo "Deleting: $resource_id"
+              az resource delete --ids "$resource_id" --yes
+            done
+          fi
+          
+          echo "All resources deleted! RG $(RESOURCE_GROUP) preserved for SP reuse"
+
+    - task: Bash@3
+      displayName: 'Full cleanup complete'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Demo lifecycle complete!"
+          echo "✓ Cloudflare restored to static page"
+          echo "✓ AKS cluster, LB, IP, storage deleted"
+          echo "✓ Service Principal preserved in RG"
+          echo "✓ Ready for next demo deploy"
