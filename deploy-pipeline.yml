@@ -339,7 +339,8 @@ stages:
               namespace: '$(TRAEFIK_NAMESPACE)'
               manifests: |                
                 k8s/traefik-middlewares.yaml
-                k8s/traefik-sentiment-routes.yaml                    
+                k8s/traefik-sentiment-routes.yaml
+                k8s/traefik-sentiment-canary.yaml
 
 - stage: CloudflareSetup
   dependsOn: Traefik
