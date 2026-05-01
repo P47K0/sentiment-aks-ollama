@@ -248,12 +248,7 @@ stages:
             displayName: 'Create Lets Encrypt Account Key Secret'
 
 - stage: Traefik
-  variables:
-    CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
-    CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
-    CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
-    CLOUDFLARE_DOMAIN: 'azure'
-    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)
+  variables:    
     TRAEFIK_NAMESPACE: ingress
     TRAEFIK_SERVICE_NAME: traefik
   displayName: 'Deploy Traefik'
@@ -344,8 +339,24 @@ stages:
               namespace: '$(TRAEFIK_NAMESPACE)'
               manifests: |                
                 k8s/traefik-middlewares.yaml
-                k8s/traefik-sentiment-routes.yaml
+                k8s/traefik-sentiment-routes.yaml                    
 
+- stage: CloudflareSetup
+  variables:
+    CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
+    CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
+    CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
+    CLOUDFLARE_DOMAIN: 'azure'
+    KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)
+    displayName: 'Get LB IP and Update Cloudflare'
+  jobs:
+  - deployment: CloudflareSetup
+    displayName: 'Get LB IP and Update Cloudflare'
+    environment: 'ingress'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
           - task: Kubernetes@1
             displayName: 'Get Traefik IP'
             inputs:
