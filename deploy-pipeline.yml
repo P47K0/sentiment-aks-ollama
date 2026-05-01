@@ -361,7 +361,7 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                EXTERNAL_IP=$(echo "$GETTRAFIKIP_KUBECTLOUTPUT" | tr -d ' \n\r\t')
+                EXTERNAL_IP=$(getTraefikIP.KubectlOutput)
                 echo "External IP: $EXTERNAL_IP"
 
                 # Update DNS
