@@ -342,13 +342,20 @@ stages:
                 k8s/traefik-sentiment-routes.yaml                    
 
 - stage: CloudflareSetup
+  dependsOn: |
+    - Traefik
+  condition: and(
+    succeeded('Build'),
+    in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
+    )
   variables:
     CLOUDFLARE_ACCOUNT_ID: $(CloudflareAccountId)
     CLOUDFLARE_ZONE_ID: $(CloudflareZoneId)
     CLOUDFLARE_DNS_RECORD_ID: $(AzureDnsRecordId)
     CLOUDFLARE_DOMAIN: 'azure'
     KV_NAMESPACE_ID: $(CloudflareKVNamespaceId)
-    displayName: 'Get LB IP and Update Cloudflare'
+    TRAEFIK_NAMESPACE: ingress
+  displayName: 'Get LB IP and Update Cloudflare'
   jobs:
   - deployment: CloudflareSetup
     displayName: 'Get LB IP and Update Cloudflare'
