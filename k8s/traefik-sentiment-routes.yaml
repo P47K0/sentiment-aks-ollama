@@ -49,22 +49,24 @@ spec:
     - web
     - websecure
   routes:
-    - match: Host(`demourlisd.one`)
+    - match: Host(`demourlisd.one`) && PathPrefix(`/`)
       kind: Rule
       services:
-        - name: sentiment-api
-          namespace: dev-blue
-          port: 80
+        - kind: TraefikService
+          name: sentiment-prod-weighted
+          namespace: ingress
       middlewares:
         - name: https-redirect
-    - match: HostRegexp(`{host:[a-z0-9.-]+.demourlisd.one`)
+
+    - match: HostRegexp(`{host:[a-z0-9.-]+.demourlisd.one`) && PathPrefix(`/`)
       kind: Rule
       services:
-        - name: sentiment-api
-          namespace: dev-blue
-          port: 80
+       - kind: TraefikService
+          name: sentiment-prod-weighted
+          namespace: ingress
       middlewares:
         - name: https-redirect
+
   tls:
     certResolver: letsencrypt
     domains:
