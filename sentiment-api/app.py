@@ -3,14 +3,65 @@ from werkzeug.exceptions import BadRequest
 import requests
 import os
 
+from azure.identity import DefaultAzureCredential
+from azure.appconfiguration.provider import load
+from featuremanagement import FeatureManager
+
 app = Flask(__name__)
 
-# Point to the new LLM Adapter service instead of Azure
 ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
+APP_CONFIG_ENDPOINT = os.environ.get("APP_CONFIG_ENDPOINT")
+APP_CONFIG_LABEL = os.environ.get("APP_CONFIG_LABEL")
+
+FEATURE_LANGUAGE_DETECTION = "language-detection"
+FEATURE_SUMMARIZATION = "summarization"
+
+
+def build_feature_manager():
+    if not APP_CONFIG_ENDPOINT:
+        raise RuntimeError("APP_CONFIG_ENDPOINT is not set")
+
+    kwargs = {
+        "endpoint": APP_CONFIG_ENDPOINT,
+        "credential": DefaultAzureCredential(),
+        "feature_flags_enabled": True,
+    }
+
+    if APP_CONFIG_LABEL:
+        kwargs["feature_flag_selectors"] = [{"key_filter": "*", "label_filter": APP_CONFIG_LABEL}]
+
+    config = load(**kwargs)
+    return FeatureManager(config)
+
+
+feature_manager = build_feature_manager()
+
+
+def get_api_user():
+    return request.headers.get("X-Api-User", "anonymous")
+
+
+def is_feature_enabled(feature_name: str) -> bool:
+    api_user = get_api_user()
+
+    # Initial simple context shape; adjust to the exact targeting context
+    # object required by the featuremanagement version you install.
+    context = {
+        "user_id": api_user,
+        "groups": []
+    }
+
+    try:
+        return feature_manager.is_enabled(feature_name, context)
+    except TypeError:
+        # Fallback for flags without targeting or older/simple evaluation
+        return feature_manager.is_enabled(feature_name)
+
 
 @app.errorhandler(405)
 def method_not_allowed(e):
     return jsonify({"error": "Method Not Allowed"}), 405
+
 
 @app.route('/sentiment', methods=['POST'])
 def sentiment():
@@ -18,12 +69,12 @@ def sentiment():
         data = request.get_json()
     except BadRequest:
         return jsonify({"error": "Malformed JSON"}), 400
-    
+
     try:
         text = data.get("text", "")
     except AttributeError:
         return jsonify({"error": "No text provided"}), 400
-    
+
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
@@ -36,44 +87,42 @@ def sentiment():
             return jsonify({"error": "Unexpected upstream response format"}), 500
 
         return jsonify(result)
-        
+
     except Exception as e:
         return jsonify({"error": "Failed to get sentiment", "details": str(e)}), 500
 
+
 @app.route('/health', methods=['GET'])
 def health():
-    """Liveness probe - checks if the app is running"""
     return jsonify({"status": "healthy"}), 200
+
 
 @app.route('/ready', methods=['GET'])
 def ready():
-    """Readiness probe - checks if the app can connect to the adapter"""
     try:
-        # Quick check if adapter is reachable
         response = requests.get(f"{ADAPTER_URL}/health", timeout=2)
         if response.status_code == 200:
             return jsonify({"status": "ready"}), 200
-        else:
-            return jsonify({"status": "not ready"}), 503
-    except:
         return jsonify({"status": "not ready"}), 503
+    except Exception:
+        return jsonify({"status": "not ready"}), 503
+
 
 @app.route('/detect-language', methods=['POST'])
 def detect_language():
-    LANGUAGE_DETECTION_ENABLED = os.getenv("LANGUAGE_DETECTION_ENABLED", "false").lower() == "true"
-    if not LANGUAGE_DETECTION_ENABLED:
+    if not is_feature_enabled(FEATURE_LANGUAGE_DETECTION):
         return jsonify({"error": "Language detection is disabled"}), 403
 
     try:
         data = request.get_json()
     except BadRequest:
         return jsonify({"error": "Malformed JSON"}), 400
-    
+
     try:
         text = data.get("text", "")
     except AttributeError:
         return jsonify({"error": "No text provided"}), 400
-    
+
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
@@ -86,11 +135,11 @@ def detect_language():
             return jsonify({"error": "Unexpected upstream response format"}), 500
 
         return jsonify(result)
-        
+
     except requests.Timeout:
         return jsonify({"error": "Ollama timeout"}), 504
     except requests.RequestException as e:
-        return jsonify({"error": "Failed to detect language", "details": str(e)}), 500    
+        return jsonify({"error": "Failed to detect language", "details": str(e)}), 500
     except Exception as e:
         return jsonify({"error": "Failed to detect language", "details": str(e)}), 500
 
