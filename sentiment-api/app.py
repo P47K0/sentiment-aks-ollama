@@ -2,12 +2,21 @@ from flask import Flask, request, jsonify
 from werkzeug.exceptions import BadRequest
 import requests
 import os
+import logging
 
 from azure.identity import DefaultAzureCredential
 from azure.appconfiguration.provider import load
 from featuremanagement import FeatureManager
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+logger.warning("APP VERSION 2026-05-18-0337 loaded")
 
 ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
 APP_CONFIG_ENDPOINT = os.environ.get("APP_CONFIG_ENDPOINT")
@@ -30,9 +39,9 @@ def build_feature_manager():
     fm = FeatureManager(config)
 
     try:
-        print("Loaded feature flags:", list(fm.list_feature_flag_names()))
+        logger.info("Loaded feature flags:", list(fm.list_feature_flag_names()))
     except Exception as ex:
-        print("Could not list feature flags:", str(ex))
+        logger.error("Could not list feature flags:", str(ex))
 
     return fm
 
@@ -47,10 +56,10 @@ def get_api_user():
 def is_feature_enabled(feature_name: str) -> bool:
     try:
         enabled = feature_manager.is_enabled(feature_name)
-        print(f"Feature '{feature_name}' enabled = {enabled}")
+        logger.info(f"Feature '{feature_name}' enabled = {enabled}")
         return enabled
     except Exception as ex:
-        print(f"Feature check failed for '{feature_name}': {ex}")
+        logger.error(f"Feature check failed for '{feature_name}': {ex}")
         return False
 
 
