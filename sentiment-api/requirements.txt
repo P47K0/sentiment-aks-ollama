@@ -1,5 +1,5 @@
 flask==3.0.3
 requests==2.32.3
-azure-appconfiguration-provider>=1.2.0
-azure-identity
-featuremanagement
+azure-appconfiguration-provider==2.4.0
+azure-identity==1.19.0
+featuremanagement==1.0.0b1

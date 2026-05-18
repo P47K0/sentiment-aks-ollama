@@ -16,8 +16,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-logger.warning("APP VERSION 2026-05-18-0337 loaded")
-
 ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
 APP_CONFIG_ENDPOINT = os.environ.get("APP_CONFIG_ENDPOINT")
 APP_CONFIG_LABEL = os.environ.get("APP_CONFIG_LABEL")
@@ -39,7 +37,7 @@ def build_feature_manager():
     fm = FeatureManager(config)
 
     try:
-        logger.info("Loaded feature flags:", list(fm.list_feature_flag_names()))
+        logger.info("Loaded feature flags: %s", list(fm.list_feature_flag_names()))
     except Exception as ex:
         logger.error("Could not list feature flags:", str(ex))
 
