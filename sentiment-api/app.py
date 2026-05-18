@@ -3,10 +3,11 @@ from werkzeug.exceptions import BadRequest
 import requests
 import os
 import logging
+import json
 
 from azure.identity import DefaultAzureCredential
-from azure.appconfiguration.provider import load
-from featuremanagement import FeatureManager
+from azure.appconfiguration import AzureAppConfigurationClient
+from azure.core.exceptions import ResourceNotFoundError
 
 app = Flask(__name__)
 
@@ -24,28 +25,41 @@ FEATURE_LANGUAGE_DETECTION = "language-detection-simple"
 FEATURE_SUMMARIZATION = "summarization"
 
 
-def build_feature_manager():
-    if not APP_CONFIG_ENDPOINT:
-        raise RuntimeError("APP_CONFIG_ENDPOINT is not set")
+if not APP_CONFIG_ENDPOINT:
+    raise RuntimeError("APP_CONFIG_ENDPOINT is not set")
 
-    config = load(
-        endpoint=APP_CONFIG_ENDPOINT,
-        credential=DefaultAzureCredential(),
-        feature_flags_enabled=True,
-    )
+credential = DefaultAzureCredential()
+app_config_client = AzureAppConfigurationClient(
+    base_url=APP_CONFIG_ENDPOINT,
+    credential=credential,
+)
 
-    fm = FeatureManager(config)
+def get_feature_flag(feature_name: str, label: str | None = None) -> dict | None:
+    key = f".appconfig.featureflag/{feature_name}"
 
     try:
-        logger.info("Loaded feature flags: %s", list(fm.list_feature_flag_names()))
+        setting = app_config_client.get_configuration_setting(
+            key=key,
+            label=label,
+        )
+        logger.info("Loaded feature flag key=%s label=%s", key, label)
+        return json.loads(setting.value)
+    except ResourceNotFoundError:
+        logger.warning("Feature flag key not found: %s label=%s", key, label)
+        return None
     except Exception as ex:
-        logger.error("Could not list feature flags:", str(ex))
+        logger.error("Failed to load feature flag %s: %s", feature_name, ex)
+        return None
 
-    return fm
+def is_feature_enabled(feature_name: str, label: str | None = None) -> bool:
+    flag = get_feature_flag(feature_name, label)
 
+    if not flag:
+        return False
 
-feature_manager = build_feature_manager()
-
+    enabled = bool(flag.get("enabled", False))
+    logger.info("Feature '%s' enabled = %s", feature_name, enabled)
+    return enabled
 
 def get_api_user():
     return request.headers.get("X-Api-User", "anonymous")
