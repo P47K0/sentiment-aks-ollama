@@ -21,7 +21,7 @@ ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
 APP_CONFIG_ENDPOINT = os.environ.get("APP_CONFIG_ENDPOINT")
 APP_CONFIG_LABEL = os.environ.get("APP_CONFIG_LABEL")
 
-FEATURE_LANGUAGE_DETECTION = "language-detection-simple"
+FEATURE_LANGUAGE_DETECTION = "language-detection"
 FEATURE_SUMMARIZATION = "summarization"
 
 
@@ -38,14 +38,10 @@ def get_feature_flag(feature_name: str, label: str | None = None) -> dict | None
     key = f".appconfig.featureflag/{feature_name}"
 
     try:
-        setting = app_config_client.get_configuration_setting(
-            key=key,
-            label=label,
-        )
-        logger.info("Loaded feature flag key=%s label=%s", key, label)
+        setting = app_config_client.get_configuration_setting(key=key, label=label)
         return json.loads(setting.value)
     except ResourceNotFoundError:
-        logger.warning("Feature flag key not found: %s label=%s", key, label)
+        logger.warning("Feature flag not found: %s", key)
         return None
     except Exception as ex:
         logger.error("Failed to load feature flag %s: %s", feature_name, ex)
@@ -53,13 +49,31 @@ def get_feature_flag(feature_name: str, label: str | None = None) -> dict | None
 
 def is_feature_enabled(feature_name: str, label: str | None = None) -> bool:
     flag = get_feature_flag(feature_name, label)
-
     if not flag:
         return False
 
-    enabled = bool(flag.get("enabled", False))
-    logger.info("Feature '%s' enabled = %s", feature_name, enabled)
-    return enabled
+    if not flag.get("enabled", False):
+        return False
+
+    filters = flag.get("conditions", {}).get("client_filters", [])
+    if not filters:
+        return True
+
+    api_user = get_api_user()
+
+    for f in filters:
+        if f.get("name") == "Microsoft.Targeting":
+            audience = f.get("parameters", {}).get("Audience", {})
+            users = [u.strip().lower() for u in audience.get("Users", [])]
+
+            if api_user in users:
+                logger.info("Feature '%s' enabled for user '%s'", feature_name, api_user)
+                return True
+
+            logger.info("Feature '%s' disabled for user '%s'", feature_name, api_user)
+            return False
+
+    return True
 
 def get_api_user():
     return request.headers.get("X-Api-User", "anonymous")
