@@ -66,12 +66,16 @@ def get_api_user():
 
 
 def is_feature_enabled(feature_name: str) -> bool:
+    key = f".appconfig.featureflag/{feature_name}"
+
     try:
-        enabled = feature_manager.is_enabled(feature_name)
-        logger.info(f"Feature '{feature_name}' enabled = {enabled}")
+        setting = app_config_client.get_configuration_setting(key=key)
+        flag = json.loads(setting.value)
+        enabled = bool(flag.get("enabled", False))
+        logger.info("Feature '%s' enabled = %s", feature_name, enabled)
         return enabled
     except Exception as ex:
-        logger.error(f"Feature check failed for '{feature_name}': {ex}")
+        logger.error("Feature check failed for '%s': %s", feature_name, ex)
         return False
 
 
