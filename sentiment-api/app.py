@@ -25,10 +25,7 @@ def build_feature_manager():
         "endpoint": APP_CONFIG_ENDPOINT,
         "credential": DefaultAzureCredential(),
         "feature_flags_enabled": True,
-    }
-
-    if APP_CONFIG_LABEL:
-        kwargs["feature_flag_selectors"] = [{"key_filter": "*", "label_filter": APP_CONFIG_LABEL}]
+    }    
 
     config = load(**kwargs)
     return FeatureManager(config)
