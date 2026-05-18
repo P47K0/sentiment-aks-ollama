@@ -21,14 +21,20 @@ def build_feature_manager():
     if not APP_CONFIG_ENDPOINT:
         raise RuntimeError("APP_CONFIG_ENDPOINT is not set")
 
-    kwargs = {
-        "endpoint": APP_CONFIG_ENDPOINT,
-        "credential": DefaultAzureCredential(),
-        "feature_flags_enabled": True,
-    }    
+    config = load(
+        endpoint=APP_CONFIG_ENDPOINT,
+        credential=DefaultAzureCredential(),
+        feature_flags_enabled=True,
+    )
 
-    config = load(**kwargs)
-    return FeatureManager(config)
+    fm = FeatureManager(config)
+
+    try:
+        print("Loaded feature flags:", list(fm.list_feature_flag_names()))
+    except Exception as ex:
+        print("Could not list feature flags:", str(ex))
+
+    return fm
 
 
 feature_manager = build_feature_manager()
@@ -39,20 +45,13 @@ def get_api_user():
 
 
 def is_feature_enabled(feature_name: str) -> bool:
-    api_user = get_api_user()
-
-    # Initial simple context shape; adjust to the exact targeting context
-    # object required by the featuremanagement version you install.
-    context = {
-        "user_id": api_user,
-        "groups": []
-    }
-
     try:
-        return feature_manager.is_enabled(feature_name, context)
-    except TypeError:
-        # Fallback for flags without targeting or older/simple evaluation
-        return feature_manager.is_enabled(feature_name)
+        enabled = feature_manager.is_enabled(feature_name)
+        print(f"Feature '{feature_name}' enabled = {enabled}")
+        return enabled
+    except Exception as ex:
+        print(f"Feature check failed for '{feature_name}': {ex}")
+        return False
 
 
 @app.errorhandler(405)
