@@ -20,7 +20,7 @@ ADAPTER_URL = os.environ.get("ADAPTER_URL", "http://llm-adapter:5000")
 APP_CONFIG_ENDPOINT = os.environ.get("APP_CONFIG_ENDPOINT")
 APP_CONFIG_LABEL = os.environ.get("APP_CONFIG_LABEL")
 
-FEATURE_LANGUAGE_DETECTION = "language-detection"
+FEATURE_LANGUAGE_DETECTION = "language-detection-simple"
 FEATURE_SUMMARIZATION = "summarization"
 
 
