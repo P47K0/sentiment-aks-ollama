@@ -167,5 +167,41 @@ def detect_language():
         return jsonify({"error": "Failed to detect language", "details": str(e)}), 500
 
 
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    if not is_feature_enabled(FEATURE_SUMMARIZATION):
+        return jsonify({"error": "Summarization is disabled"}), 403
+
+    try:
+        data = request.get_json()
+    except BadRequest:
+        return jsonify({"error": "Malformed JSON"}), 400
+
+    try:
+        text = data.get("text", "")
+    except AttributeError:
+        return jsonify({"error": "No text provided"}), 400
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        response = requests.post(f"{ADAPTER_URL}/summarize", json={"text": text}, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+
+        if not isinstance(result, dict) or "summary" not in result:
+            return jsonify({"error": "Unexpected upstream response format"}), 500
+
+        return jsonify(result)
+
+    except requests.Timeout:
+        return jsonify({"error": "Ollama timeout"}), 504
+    except requests.RequestException as e:
+        return jsonify({"error": "Failed to summarize text", "details": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": "Failed to summarize text", "details": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

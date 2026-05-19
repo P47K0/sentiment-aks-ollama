@@ -22,6 +22,9 @@ def get_prompt_template():
 def get_language_prompt_template():
     return os.getenv("LANGUAGE_PROMPT_TEMPLATE", "")
 
+def get_summarization_prompt_template():
+    return os.getenv("SUMMARIZATION_PROMPT_TEMPLATE", "")
+
 @app.route('/sentiment', methods=['POST'])
 def analyze_sentiment():
     data = request.get_json()
@@ -159,6 +162,58 @@ def detect_language():
         return jsonify({"error": "Failed to parse Ollama response", "details": str(e)}), 500
     except Exception as e:
         return jsonify({"error": "Internal error in adapter", "details": str(e)}), 500
-    
+
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    data = request.get_json()
+    text = data.get("text", "").strip()
+
+    prompt_template = get_summarization_prompt_template()
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    if not prompt_template:
+        logger.error("SUMMARIZATION_PROMPT_TEMPLATE not found in environment")
+        return jsonify({"error": "Prompt configuration missing"}), 500
+
+    prompt = prompt_template.format(text=text)
+
+    payload = {
+        "model": MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "temperature": 0.0,
+        "format": {
+            "type": "object",
+            "properties": {
+                "summary": {"type": "string"}
+            },
+            "required": ["summary"]
+        }
+    }
+
+    try:
+        response = requests.post(f"{OLLAMA_URL.rstrip('/')}/api/generate", json=payload, timeout=60)
+        response.raise_for_status()
+
+        raw_output = response.json().get("response", "").strip()
+        result = json.loads(raw_output)
+
+        if "summary" not in result:
+            return jsonify({"error": "Unexpected upstream response format"}), 500
+
+        return jsonify(result)
+
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Ollama request timed out"}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": "Failed to communicate with Ollama", "details": str(e)}), 502
+    except json.JSONDecodeError as e:
+        return jsonify({"error": "Failed to parse Ollama response", "details": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": "Internal error in adapter", "details": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
