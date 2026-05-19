@@ -81,20 +81,6 @@ def get_api_user():
     return request.headers.get("X-Api-User", "anonymous")
 
 
-def is_feature_enabled(feature_name: str) -> bool:
-    key = f".appconfig.featureflag/{feature_name}"
-
-    try:
-        setting = app_config_client.get_configuration_setting(key=key)
-        flag = json.loads(setting.value)
-        enabled = bool(flag.get("enabled", False))
-        logger.info("Feature '%s' enabled = %s", feature_name, enabled)
-        return enabled
-    except Exception as ex:
-        logger.error("Feature check failed for '%s': %s", feature_name, ex)
-        return False
-
-
 @app.errorhandler(405)
 def method_not_allowed(e):
     return jsonify({"error": "Method Not Allowed"}), 405
