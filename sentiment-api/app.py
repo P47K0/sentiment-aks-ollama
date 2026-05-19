@@ -60,6 +60,7 @@ def is_feature_enabled(feature_name: str, label: str | None = None) -> bool:
         return True
 
     api_user = get_api_user()
+    logger.info("Checking feature '%s' for user '%s' with filters: %s", feature_name, api_user, filters)
 
     for f in filters:
         if f.get("name") == "Microsoft.Targeting":
@@ -73,7 +74,8 @@ def is_feature_enabled(feature_name: str, label: str | None = None) -> bool:
             logger.info("Feature '%s' disabled for user '%s'", feature_name, api_user)
             return False
 
-    return True
+        logger.info("-> Name '%s'", f.get("name"))
+    return False
 
 def get_api_user():
     return request.headers.get("X-Api-User", "anonymous")
