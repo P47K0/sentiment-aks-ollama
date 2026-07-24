@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capacity-simulator-secrets
+type: Opaque
+stringData:
+  SimulatorApiKey: "replace-with-real-simulator-api-key"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capacity-simulator
+  labels:
+    app: capacity-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: capacity-simulator
+  template:
+    metadata:
+      labels:
+        app: capacity-simulator
+    spec:
+      containers:
+      - name: capacity-simulator
+        image: yourdockerhubuser/capacity-simulator:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_HTTP_PORTS
+          value: "8080"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: SimulatorApiKey
+          valueFrom:
+            secretKeyRef:
+              name: capacity-simulator-secrets
+              key: SimulatorApiKey
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: capacity-simulator
+  labels:
+    app: capacity-simulator
+spec:
+  selector:
+    app: capacity-simulator
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: capacity-simulator-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: simulator.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: capacity-simulator
+            port:
+              number: 80

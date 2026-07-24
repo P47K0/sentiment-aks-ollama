@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capacity-advisor-secrets
+type: Opaque
+stringData:
+  AiAgent__ApiKey: "replace-with-real-agent-api-key"
+  AssessmentApiKey: "replace-with-real-rest-api-key"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capacity-advisor
+  labels:
+    app: capacity-advisor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: capacity-advisor
+  template:
+    metadata:
+      labels:
+        app: capacity-advisor
+    spec:
+      containers:
+      - name: capacity-advisor
+        image: yourdockerhubuser/capacity-advisor:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_HTTP_PORTS
+          value: "8080"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: TargetPlatform
+          value: "AKS"
+        - name: PlatformCollectors__Aks__SubscriptionId
+          value: "your-subscription-id"
+        - name: PlatformCollectors__Aks__ResourceGroup
+          value: "az400-practice"
+        - name: PlatformCollectors__Aks__ClusterName
+          value: "aks-ollama-dev"
+        - name: PlatformCollectors__Aks__Namespace
+          value: "dev-blue"
+        - name: PlatformCollectors__Aks__WorkloadName
+          value: "capacitysimulator"
+        - name: PlatformCollectors__Aks__WorkloadKind
+          value: "Deployment"
+        - name: PlatformCollectors__Aks__ContainerName
+          value: "capacitysimulator"
+        - name: PlatformCollectors__Aks__EnvironmentName
+          value: "aca-env-dev"
+        - name: PlatformCollectors__Aks__PrometheusQueryEndpoint
+          value: ""
+        - name: PlatformCollectors__Aks__MetricWindowMinutes
+          value: "10"
+        - name: AiAgent__Url
+          value: "agent-url"
+        - name: AiAgent__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: capacity-advisor-secrets
+              key: AiAgent__ApiKey
+        - name: AssessmentApiKey
+          valueFrom:
+            secretKeyRef:
+              name: capacity-advisor-secrets
+              key: AssessmentApiKey
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: capacity-advisor
+  labels:
+    app: capacity-advisor
+spec:
+  selector:
+    app: capacity-advisor
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: capacity-advisor-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: advisor.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: capacity-advisor
+            port:
+              number: 80

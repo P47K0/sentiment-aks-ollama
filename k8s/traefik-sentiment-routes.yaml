@@ -62,8 +62,8 @@ spec:
       kind: Rule
       services:
        - kind: TraefikService
-          name: sentiment-prod-weighted
-          namespace: ingress
+         name: sentiment-prod-weighted
+         namespace: ingress
       middlewares:
         - name: https-redirect
 
