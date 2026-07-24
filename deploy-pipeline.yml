@@ -448,15 +448,21 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: 'AKS-VSPro-Connection'
               namespace: '$(namespace)'
+              # manifests: |
+              #  k8s/sentiment-configmap.yaml
+              #  k8s/ollama-deployment.yaml                
+              #  k8s/llm-adapter-deployment.yaml
+              #  k8s/sentiment-api-deployment.yaml
+              #  k8s/sentiment-api-ingress.yaml
               manifests: |
-                k8s/sentiment-configmap.yaml
-                k8s/ollama-deployment.yaml                
-                k8s/llm-adapter-deployment.yaml
-                k8s/sentiment-api-deployment.yaml
-                k8s/sentiment-api-ingress.yaml
+                k8s/advisor/capacity-advisor.yaml
+                k8s/advisor/capacity-simulator.yaml
+              # containers: |
+              #  $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
+              #  $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
               containers: |
-                $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
-                $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
+                $(dockerHubUsername)/capacity-advisor:gha-30072517071
+                $(dockerHubUsername)/capacity-simulator:gha-29901091883
 
           - task: Kubernetes@1
             displayName: 'Wait for Ollama Pod'
