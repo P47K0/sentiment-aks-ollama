@@ -397,12 +397,9 @@ stages:
 - stage: Deploy
   displayName: '3. Deploy to AKS'
   dependsOn:
-    - Build
     - Traefik
-  condition: and(
-    succeeded('Build'),
+  condition: 
     in(dependencies.Traefik.result, 'Succeeded', 'Skipped')
-    )
   variables:
     FEATURE_FLAG_DETECT_LANGUAGE: $(FeatureFlagDetectLanguage)
     finalLlmAdapterTag: $[ stageDependencies.Build.ResolveFinalTags.outputs['setFinalTags.finalLlmAdapterTag'] ]
