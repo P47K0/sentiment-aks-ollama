@@ -461,8 +461,8 @@ stages:
               #  $(dockerHubUsername)/llm-adapter:$(finalLlmAdapterTag)
               #  $(dockerHubUsername)/sentiment-api:$(finalSentimentApiTag)
               containers: |
-                $(dockerHubUsername)/capacity-advisor:xxx
-                $(dockerHubUsername)/capacity-simulator:xxx
+                $(dockerHubUsername)/capacity-advisor:gha-30072517071
+                $(dockerHubUsername)/capacity-simulator:gha-29901091883
 
           - task: Kubernetes@1
             displayName: 'Wait for Ollama Pod'
